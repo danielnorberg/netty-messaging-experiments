@@ -14,8 +14,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 
 public class Client {
@@ -23,11 +21,12 @@ public class Client {
   private static final Logger log = LoggerFactory.getLogger(Client.class);
 
   private final Channel channel;
-  private final ConcurrentMap<RequestId, ReplyHandler> outstanding = new ConcurrentHashMap<>(
-      1000, 0.5f, Runtime.getRuntime().availableProcessors());
+  private final ReplyHandler replyHandler;
 
-  public Client(final InetSocketAddress address, final Executor executor, final boolean batching)
+  public Client(final InetSocketAddress address, final Executor executor, final boolean batching,
+                final ReplyHandler replyHandler)
       throws InterruptedException {
+    this.replyHandler = replyHandler;
     final ClientSocketChannelFactory channelFactory = new NioClientSocketChannelFactory();
     final ClientBootstrap bootstrap = new ClientBootstrap(channelFactory);
     bootstrap.setPipelineFactory(new ChannelPipelineFactory() {
@@ -53,8 +52,7 @@ public class Client {
     this.channel = bootstrap.connect(address).await().getChannel();
   }
 
-  public void send(final Request request, final ReplyHandler replyHandler) {
-    outstanding.put(request.getId(), replyHandler);
+  public void send(final Request request) {
     channel.write(request);
   }
 
@@ -65,13 +63,8 @@ public class Client {
     public void messageReceived(final ChannelHandlerContext ctx, final MessageEvent e)
         throws Exception {
       final Reply reply = (Reply) e.getMessage();
-      final ReplyHandler replyHandler = outstanding.remove(reply.getRequestId());
-      if (replyHandler == null) {
-        log.warn("received spurious reply: {}", reply);
-        return;
-      }
       try {
-        replyHandler.handleReply(reply);
+        replyHandler.handleReply(Client.this, reply);
       } catch (Exception ex) {
         log.error("reply handler exception", ex);
       }

@@ -43,12 +43,18 @@ public class Bench {
       }
     });
 
-    final Client client = new Client(address, executor, batching);
+    final Client client = new Client(address, executor, batching, new ReplyHandler() {
+      @Override
+      public void handleReply(final Client client, final Reply reply) {
+        meter.inc(1, 0);
+        client.send(new Request(EMPTY_BUFFER));
+      }
+    });
 
     final int n = 1000;
 
     for (int i = 0; i < n; i++) {
-      send(client, meter);
+      client.send(new Request(EMPTY_BUFFER));
     }
 
     sleepUninterruptibly(1, DAYS);
@@ -64,15 +70,5 @@ public class Bench {
                                                        e.printStackTrace();
                                                      }
                                                    }, true);
-  }
-
-  private static void send(final Client client, final ProgressMeter meter) {
-    client.send(new Request(EMPTY_BUFFER), new ReplyHandler() {
-      @Override
-      public void handleReply(final Reply reply) {
-        meter.inc(1, 0);
-        send(client, meter);
-      }
-    });
   }
 }

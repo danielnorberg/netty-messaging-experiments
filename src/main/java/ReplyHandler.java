@@ -3,5 +3,5 @@
  */
 
 public interface ReplyHandler {
-  void handleReply(Reply reply);
+  void handleReply(Client client, Reply reply);
 }
