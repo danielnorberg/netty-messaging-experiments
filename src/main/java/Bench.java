@@ -16,6 +16,7 @@ public class Bench {
     final ProgressMeter meter = new ProgressMeter();
 
     final int threads;
+    final boolean batching;
 
     if (args.length > 0) {
       threads = Integer.parseInt(args[0]);
@@ -23,8 +24,15 @@ public class Bench {
       threads = Runtime.getRuntime().availableProcessors();
     }
 
+    if (args.length > 1) {
+      batching = Boolean.parseBoolean(args[1]);
+    } else {
+      batching = true;
+    }
+
     out.printf("address: %s%n", address);
     out.printf("threads: %s%n", threads);
+    out.printf("batching: %s", batching);
 
     final ForkJoinPool executor = forkJoinPool(threads);
 
@@ -33,9 +41,9 @@ public class Bench {
       public void handleRequest(final Request request, final RequestContext context) {
         context.reply(request.makeReply(418));
       }
-    }, executor);
+    }, executor, batching);
 
-    final Client client = new Client(address, executor);
+    final Client client = new Client(address, executor, batching);
 
     final int n = 1000;
 

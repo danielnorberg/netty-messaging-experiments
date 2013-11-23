@@ -26,15 +26,14 @@ public class Client {
   private final ConcurrentMap<RequestId, ReplyHandler> outstanding = new ConcurrentHashMap<>(
       1000, 0.5f, Runtime.getRuntime().availableProcessors());
 
-  public Client(final InetSocketAddress address, final Executor executor)
+  public Client(final InetSocketAddress address, final Executor executor, final boolean batching)
       throws InterruptedException {
     final ClientSocketChannelFactory channelFactory = new NioClientSocketChannelFactory();
     final ClientBootstrap bootstrap = new ClientBootstrap(channelFactory);
     bootstrap.setPipelineFactory(new ChannelPipelineFactory() {
       @Override
       public ChannelPipeline getPipeline() throws Exception {
-        return Channels.pipeline(
-            new AutoFlushingWriteBatcher(),
+        final ChannelPipeline pipeline = Channels.pipeline(
             new RequestEncoder(),
 
             new MessageFrameDecoder(),
@@ -42,6 +41,12 @@ public class Client {
             new ReplyDecoder(),
             new Handler()
         );
+
+        if (batching) {
+          pipeline.addFirst("batcher", new AutoFlushingWriteBatcher());
+        }
+
+        return pipeline;
       }
     });
 

@@ -23,7 +23,7 @@ public class Server {
   private final Channel channel;
 
   public Server(final InetSocketAddress address, final RequestHandler requestHandler,
-                final Executor executor) {
+                final Executor executor, final boolean batching) {
     final InetSocketAddress address1 = address;
     this.requestHandler = requestHandler;
 
@@ -32,7 +32,7 @@ public class Server {
     bootstrap.setPipelineFactory(new ChannelPipelineFactory() {
       @Override
       public ChannelPipeline getPipeline() throws Exception {
-        return Channels.pipeline(
+        final ChannelPipeline pipeline = Channels.pipeline(
             new AutoFlushingWriteBatcher(),
             new ReplyEncoder(),
 
@@ -40,6 +40,12 @@ public class Server {
             new ExecutionHandler(executor),
             new RequestDecoder(),
             new Handler());
+
+        if (batching) {
+          pipeline.addFirst("batcher", new AutoFlushingWriteBatcher());
+        }
+
+        return pipeline;
       }
     });
 
