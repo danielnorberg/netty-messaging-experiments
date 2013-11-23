@@ -2,6 +2,7 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.ForkJoinPool;
 
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
+import static java.lang.System.out;
 import static java.net.InetAddress.getLoopbackAddress;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static org.jboss.netty.buffer.ChannelBuffers.EMPTY_BUFFER;
@@ -9,12 +10,23 @@ import static org.jboss.netty.buffer.ChannelBuffers.EMPTY_BUFFER;
 public class Bench {
 
   public static void main(final String... args) throws InterruptedException {
-    InetSocketAddress address =
+    final InetSocketAddress address =
         new InetSocketAddress(getLoopbackAddress(), 4711);
 
     final ProgressMeter meter = new ProgressMeter();
 
-    final ForkJoinPool executor = new ForkJoinPool();
+    final int threads;
+
+    if (args.length > 0) {
+      threads = Integer.parseInt(args[0]);
+    } else {
+      threads = Runtime.getRuntime().availableProcessors();
+    }
+
+    out.printf("address: %s%n", address);
+    out.printf("threads: %s%n", threads);
+
+    final ForkJoinPool executor = forkJoinPool(threads);
 
     final Server server = new Server(address, new RequestHandler() {
       @Override
@@ -32,6 +44,18 @@ public class Bench {
     }
 
     sleepUninterruptibly(1, DAYS);
+  }
+
+  private static ForkJoinPool forkJoinPool(final int threads) {
+    return new ForkJoinPool(threads,
+                                                   ForkJoinPool.defaultForkJoinWorkerThreadFactory,
+                                                   new Thread.UncaughtExceptionHandler() {
+                                                     @Override
+                                                     public void uncaughtException(final Thread t,
+                                                                                   final Throwable e) {
+                                                       e.printStackTrace();
+                                                     }
+                                                   }, true);
   }
 
   private static void send(final Client client, final ProgressMeter meter) {
