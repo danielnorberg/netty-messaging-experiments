@@ -22,8 +22,8 @@ public class Server {
   private final RequestHandler requestHandler;
   private final Channel channel;
 
-  public Server(final InetSocketAddress address, final RequestHandler requestHandler,
-                final Executor executor, final boolean batching) {
+  public Server(final InetSocketAddress address, final Executor executor,
+                final boolean batching, final RequestHandler requestHandler) {
     final InetSocketAddress address1 = address;
     this.requestHandler = requestHandler;
 

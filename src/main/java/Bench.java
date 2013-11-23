@@ -36,12 +36,12 @@ public class Bench {
 
     final ForkJoinPool executor = forkJoinPool(threads);
 
-    final Server server = new Server(address, new RequestHandler() {
+    final Server server = new Server(address, executor, batching, new RequestHandler() {
       @Override
       public void handleRequest(final Request request, final RequestContext context) {
         context.reply(request.makeReply(418));
       }
-    }, executor, batching);
+    });
 
     final Client client = new Client(address, executor, batching);
 
