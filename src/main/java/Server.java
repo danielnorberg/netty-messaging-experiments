@@ -8,10 +8,12 @@ import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
+import org.jboss.netty.handler.execution.ExecutionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
+import java.util.concurrent.Executor;
 
 public class Server {
 
@@ -20,7 +22,8 @@ public class Server {
   private final RequestHandler requestHandler;
   private final Channel channel;
 
-  public Server(final InetSocketAddress address, final RequestHandler requestHandler) {
+  public Server(final InetSocketAddress address, final RequestHandler requestHandler,
+                final Executor executor) {
     final InetSocketAddress address1 = address;
     this.requestHandler = requestHandler;
 
@@ -34,6 +37,7 @@ public class Server {
             new ReplyEncoder(),
 
             new MessageFrameDecoder(),
+            new ExecutionHandler(executor),
             new RequestDecoder(),
             new Handler());
       }

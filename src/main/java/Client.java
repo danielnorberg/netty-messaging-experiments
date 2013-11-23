@@ -11,11 +11,13 @@ import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
 import org.jboss.netty.channel.socket.ClientSocketChannelFactory;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
+import org.jboss.netty.handler.execution.ExecutionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
 
 public class Client {
 
@@ -24,7 +26,7 @@ public class Client {
   private final Channel channel;
   private final ConcurrentMap<RequestId, ReplyHandler> outstanding = Maps.newConcurrentMap();
 
-  public Client(final InetSocketAddress address) throws InterruptedException {
+  public Client(final InetSocketAddress address, final Executor executor) throws InterruptedException {
     final ClientSocketChannelFactory channelFactory = new NioClientSocketChannelFactory();
     final ClientBootstrap bootstrap = new ClientBootstrap(channelFactory);
     bootstrap.setPipelineFactory(new ChannelPipelineFactory() {
@@ -35,6 +37,7 @@ public class Client {
             new RequestEncoder(),
 
             new MessageFrameDecoder(),
+            new ExecutionHandler(executor),
             new ReplyDecoder(),
             new Handler()
         );

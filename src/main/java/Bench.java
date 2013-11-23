@@ -1,4 +1,5 @@
 import java.net.InetSocketAddress;
+import java.util.concurrent.ForkJoinPool;
 
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static java.net.InetAddress.getLoopbackAddress;
@@ -13,14 +14,16 @@ public class Bench {
 
     final ProgressMeter meter = new ProgressMeter();
 
+    final ForkJoinPool executor = new ForkJoinPool();
+
     final Server server = new Server(address, new RequestHandler() {
       @Override
       public void handleRequest(final Request request, final RequestContext context) {
         context.reply(request.makeReply(418));
       }
-    });
+    }, executor);
 
-    final Client client = new Client(address);
+    final Client client = new Client(address, executor);
 
     final int n = 1000;
 
