@@ -33,7 +33,6 @@ public class Server {
       @Override
       public ChannelPipeline getPipeline() throws Exception {
         final ChannelPipeline pipeline = Channels.pipeline(
-            new AutoFlushingWriteBatcher(),
             new ReplyEncoder(),
 
             new MessageFrameDecoder(),
