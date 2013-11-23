@@ -1,5 +1,3 @@
-import com.google.common.collect.Maps;
-
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -16,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 
@@ -24,9 +23,11 @@ public class Client {
   private static final Logger log = LoggerFactory.getLogger(Client.class);
 
   private final Channel channel;
-  private final ConcurrentMap<RequestId, ReplyHandler> outstanding = Maps.newConcurrentMap();
+  private final ConcurrentMap<RequestId, ReplyHandler> outstanding = new ConcurrentHashMap<>(
+      1000, 0.5f, Runtime.getRuntime().availableProcessors());
 
-  public Client(final InetSocketAddress address, final Executor executor) throws InterruptedException {
+  public Client(final InetSocketAddress address, final Executor executor)
+      throws InterruptedException {
     final ClientSocketChannelFactory channelFactory = new NioClientSocketChannelFactory();
     final ClientBootstrap bootstrap = new ClientBootstrap(channelFactory);
     bootstrap.setPipelineFactory(new ChannelPipelineFactory() {
