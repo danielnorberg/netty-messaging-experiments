@@ -73,7 +73,9 @@ public class Bench {
     final Client client = new Client(address, executor, batching, connections, new ReplyHandler() {
       @Override
       public void handleReply(final Client client, final Reply reply) {
-        meter.inc(1, 0);
+        final long requestTimestampMillis = reply.getRequestId().getTimestampMillis();
+        final long deltaMillis = System.currentTimeMillis() - requestTimestampMillis;
+        meter.inc(1, deltaMillis);
         client.send(new Request(EMPTY_BUFFER));
       }
     });
