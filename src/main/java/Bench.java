@@ -28,9 +28,9 @@ public class Bench {
     final String threadsDest = parser.addArgument("-t", "--threads")
         .type(Integer.class).setDefault(CPUS).getDest();
     final String batchingDest = parser.addArgument("--no-batching")
-        .action(storeFalse()).getDest();
+        .type(Boolean.class).action(storeFalse()).getDest();
     final String portDest = parser.addArgument("-p", "--port")
-        .setDefault(4711).getDest();
+        .type(Integer.class).setDefault(4711).getDest();
 
     final String connectionsDest = parser.addArgument("-c", "--connections")
         .type(Integer.class).getDest();
