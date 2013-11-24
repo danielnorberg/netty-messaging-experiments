@@ -59,6 +59,7 @@ public class Bench {
     out.printf("batching: %s%n", batching);
     out.printf("connections: %s%n", connections);
     out.printf("outstanding: %s%n", outstanding);
+    out.println();
 
     final ExecutorService executor = new ChannelShardedForkJoinPool(threads);
 

@@ -7,13 +7,23 @@ jar="$(ls -t $dir/../target/$project*.jar | grep -v sources | grep -v javadoc | 
 jar="$(cd $(dirname $jar) && pwd -P)/$(basename $jar)"
 
 : ${JMX_PORT=7091}
+: ${HEAP_SIZE=2g}
+: ${NEW_SIZE=1g}
 
 echo JMX_PORT=$JMX_PORT
+echo HEAP_SIZE=$HEAP_SIZE
+echo NEW_SIZE=$NEW_SIZE
+echo
 
-exec java -Dcom.sun.management.jmxremote.port=$JMX_PORT \
-          -Dcom.sun.management.jmxremote.ssl=false \
-          -Dcom.sun.management.jmxremote.authenticate=false \
-          -XX:+UnlockCommercialFeatures -XX:+FlightRecorder \
-          -Xmx2g -Xms2g -XX:NewSize=1g \
-          -jar $jar \
-          "$@"
+CMD="java -Dcom.sun.management.jmxremote.port=$JMX_PORT \
+         -Dcom.sun.management.jmxremote.ssl=false \
+         -Dcom.sun.management.jmxremote.authenticate=false \
+         -XX:+UnlockCommercialFeatures -XX:+FlightRecorder \
+         -Xmx$HEAP_SIZE -Xms$HEAP_SIZE -XX:NewSize=$NEW_SIZE \
+         -jar $jar \
+         $@"
+
+echo $CMD
+echo
+
+$CMD
