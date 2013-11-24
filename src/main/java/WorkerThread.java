@@ -1,7 +1,3 @@
-/**
- * Copyright (C) 2013 Spotify AB
- */
-
 import java.security.SecureRandom;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinWorkerThread;

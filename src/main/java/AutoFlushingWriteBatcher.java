@@ -11,10 +11,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
-/**
- * Copyright (C) 2013 Spotify AB
- */
-
 public class AutoFlushingWriteBatcher extends BufferedWriteHandler {
 
   private static final long MAX_DELAY_NANOS = MICROSECONDS.toNanos(100);

@@ -2,10 +2,6 @@ import org.jboss.netty.buffer.ChannelBuffer;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * Copyright (C) 2013 Spotify AB
- */
-
 public class RequestId {
 
   private static final AtomicLong ID_COUNTER = new AtomicLong();

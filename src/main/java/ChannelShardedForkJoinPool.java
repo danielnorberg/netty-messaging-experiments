@@ -1,7 +1,3 @@
-/**
- * Copyright (C) 2013 Spotify AB
- */
-
 import com.google.common.collect.Lists;
 
 import org.jboss.netty.channel.Channel;

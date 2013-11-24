@@ -1,9 +1,5 @@
 import org.jboss.netty.handler.codec.frame.LengthFieldBasedFrameDecoder;
 
-/**
- * Copyright (C) 2013 Spotify AB
- */
-
 public class MessageFrameDecoder extends LengthFieldBasedFrameDecoder {
 
   public MessageFrameDecoder() {
