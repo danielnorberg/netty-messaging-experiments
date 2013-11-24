@@ -1,3 +1,5 @@
+import com.google.common.collect.Lists;
+
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -14,17 +16,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
+import java.util.List;
 import java.util.concurrent.Executor;
 
 public class Client {
 
   private static final Logger log = LoggerFactory.getLogger(Client.class);
 
-  private final Channel channel;
+  private final List<Channel> channels = Lists.newArrayList();
   private final ReplyHandler replyHandler;
 
   public Client(final InetSocketAddress address, final Executor executor, final boolean batching,
-                final ReplyHandler replyHandler)
+                final int connections, final ReplyHandler replyHandler)
       throws InterruptedException {
     this.replyHandler = replyHandler;
     final ClientSocketChannelFactory channelFactory = new NioClientSocketChannelFactory();
@@ -49,10 +52,23 @@ public class Client {
       }
     });
 
-    this.channel = bootstrap.connect(address).await().getChannel();
+    for (int i = 0; i < connections; i++) {
+      final Channel channel = bootstrap.connect(address).await().getChannel();
+      channels.add(channel);
+    }
   }
 
   public void send(final Request request) {
+
+    final Thread thread = Thread.currentThread();
+    final long r;
+    if (thread instanceof WorkerThread) {
+      r = Math.abs(((WorkerThread) thread).random());
+    } else {
+      r = thread.getId();
+    }
+    final int index = (int) (r % channels.size());
+    final Channel channel = channels.get(index);
     channel.write(request);
   }
 

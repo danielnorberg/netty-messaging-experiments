@@ -1,5 +1,6 @@
 import java.net.InetSocketAddress;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinWorkerThread;
 
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static java.lang.System.out;
@@ -17,6 +18,8 @@ public class Bench {
 
     final int threads;
     final boolean batching;
+    final int connections;
+    final int outstanding;
 
     if (args.length > 0) {
       threads = Integer.parseInt(args[0]);
@@ -30,9 +33,24 @@ public class Bench {
       batching = true;
     }
 
+    if (args.length > 2) {
+      connections = Integer.parseInt(args[2]);
+    } else {
+      connections = threads;
+    }
+
+    if (args.length > 3) {
+      outstanding = Integer.parseInt(args[3]);
+    } else {
+      outstanding = 1000 * connections;
+    }
+
     out.printf("address: %s%n", address);
     out.printf("threads: %s%n", threads);
-    out.printf("batching: %s", batching);
+    out.printf("batching: %s%n", batching);
+    out.printf("connections: %s%n", connections);
+    out.printf("outstanding: %s%n", outstanding);
+
 
     final ForkJoinPool executor = forkJoinPool(threads);
 
@@ -43,7 +61,7 @@ public class Bench {
       }
     });
 
-    final Client client = new Client(address, executor, batching, new ReplyHandler() {
+    final Client client = new Client(address, executor, batching, connections, new ReplyHandler() {
       @Override
       public void handleReply(final Client client, final Reply reply) {
         meter.inc(1, 0);
@@ -51,9 +69,7 @@ public class Bench {
       }
     });
 
-    final int n = 1000;
-
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < outstanding; i++) {
       client.send(new Request(EMPTY_BUFFER));
     }
 
@@ -62,7 +78,13 @@ public class Bench {
 
   private static ForkJoinPool forkJoinPool(final int threads) {
     return new ForkJoinPool(threads,
-                                                   ForkJoinPool.defaultForkJoinWorkerThreadFactory,
+                                                   new ForkJoinPool.ForkJoinWorkerThreadFactory() {
+                                                     @Override
+                                                     public ForkJoinWorkerThread newThread(
+                                                         final ForkJoinPool pool) {
+                                                       return new WorkerThread(pool);
+                                                     }
+                                                   },
                                                    new Thread.UncaughtExceptionHandler() {
                                                      @Override
                                                      public void uncaughtException(final Thread t,
@@ -71,4 +93,5 @@ public class Bench {
                                                      }
                                                    }, true);
   }
+
 }
