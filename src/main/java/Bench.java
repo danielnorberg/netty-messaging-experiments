@@ -1,10 +1,11 @@
+import com.google.common.base.Supplier;
+
 import net.sourceforge.argparse4j.ArgumentParsers;
 import net.sourceforge.argparse4j.inf.ArgumentParser;
 import net.sourceforge.argparse4j.inf.ArgumentParserException;
 import net.sourceforge.argparse4j.inf.Namespace;
 
 import java.net.InetSocketAddress;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinWorkerThread;
 
@@ -21,7 +22,6 @@ public class Bench {
   public static final int CPUS = Runtime.getRuntime().availableProcessors();
 
   public static void main(final String... args) throws InterruptedException {
-    final ProgressMeter meter = new ProgressMeter();
 
     final ArgumentParser parser = ArgumentParsers.newArgumentParser("benchmark").defaultHelp(true);
 
@@ -61,7 +61,31 @@ public class Bench {
     out.printf("outstanding: %s%n", outstanding);
     out.println();
 
-    final ExecutorService executor = new ChannelShardedForkJoinPool(threads);
+    final ChannelShardedForkJoinPool executor = new ChannelShardedForkJoinPool(threads);
+
+    final Supplier<Long> latencySupplier = new Supplier<Long>() {
+      @Override
+      public Long get() {
+        long sum = 0;
+        for (final WorkerThread worker : executor.getWorkers()) {
+          sum += worker.getTotalLatency();
+        }
+        return sum;
+      }
+    };
+
+    final Supplier<Long> operationsSupplier = new Supplier<Long>() {
+      @Override
+      public Long get() {
+        long sum = 0;
+        for (final WorkerThread worker : executor.getWorkers()) {
+          sum += worker.getTotalRequests();
+        }
+        return sum;
+      }
+    };
+
+    final ProgressMeter meter = new ProgressMeter(latencySupplier, operationsSupplier);
 
     final Server server = new Server(address, executor, batching, new RequestHandler() {
       @Override
@@ -74,8 +98,11 @@ public class Bench {
       @Override
       public void handleReply(final Client client, final Reply reply) {
         final long requestTimestampMillis = reply.getRequestId().getTimestampMillis();
-        final long deltaMillis = System.currentTimeMillis() - requestTimestampMillis;
-        meter.inc(1, deltaMillis);
+        final long latencyMillis = System.currentTimeMillis() - requestTimestampMillis;
+        Thread thread = Thread.currentThread();
+        if (thread instanceof WorkerThread) {
+          ((WorkerThread) thread).incRequestCounter(latencyMillis);
+        }
         client.send(new Request(EMPTY_BUFFER));
       }
     });

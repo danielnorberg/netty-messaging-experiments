@@ -16,6 +16,7 @@ public class ChannelShardedForkJoinPool extends AbstractExecutorService {
 
   private final ExecutorService[] executors;
   private boolean shutdown;
+  private final List<WorkerThread> workerThreads = Lists.newCopyOnWriteArrayList();
 
   public ChannelShardedForkJoinPool(final int corePoolSize) {
     executors = new ForkJoinPool[corePoolSize];
@@ -84,13 +85,15 @@ public class ChannelShardedForkJoinPool extends AbstractExecutorService {
     return executors[index];
   }
 
-  private static ForkJoinPool forkJoinPool(final int threads) {
+  private ForkJoinPool forkJoinPool(final int threads) {
     return new ForkJoinPool(threads,
                             new ForkJoinPool.ForkJoinWorkerThreadFactory() {
                               @Override
                               public ForkJoinWorkerThread newThread(
                                   final ForkJoinPool pool) {
-                                return new WorkerThread(pool);
+                                WorkerThread workerThread = new WorkerThread(pool);
+                                workerThreads.add(workerThread);
+                                return workerThread;
                               }
                             },
                             new Thread.UncaughtExceptionHandler() {
@@ -101,5 +104,9 @@ public class ChannelShardedForkJoinPool extends AbstractExecutorService {
                               }
                             }, true
     );
+  }
+
+  public List<WorkerThread> getWorkers() {
+    return Lists.newArrayList(workerThreads);
   }
 }

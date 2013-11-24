@@ -16,7 +16,6 @@ public class Request {
     this.payload = payload;
   }
 
-
   public Reply makeReply(final int statusCode) {
     return makeReply(statusCode, EMPTY_BUFFER);
   }

@@ -1,4 +1,4 @@
-import com.netflix.hystrix.util.LongAdder;
+import com.google.common.base.Supplier;
 
 import java.util.ArrayDeque;
 
@@ -22,8 +22,11 @@ public class ProgressMeter {
 
   final private String unit;
 
-  final private LongAdder latency = new LongAdder();
-  final private LongAdder operations = new LongAdder();
+//  final private LongAdder latency = new LongAdder();
+//  final private LongAdder operations = new LongAdder();
+
+  private final Supplier<Long> latency;
+  private final Supplier<Long> operations;
 
   final private ArrayDeque<Delta> deltas = new ArrayDeque<Delta>();
 
@@ -31,12 +34,14 @@ public class ProgressMeter {
 
   private final Thread worker;
 
-  public ProgressMeter() {
-    this("ops");
+  public ProgressMeter(final Supplier<Long> latency, final Supplier<Long> operations) {
+    this("ops", latency, operations);
   }
 
-  public ProgressMeter(final String unit) {
+  public ProgressMeter(final String unit, final Supplier<Long> latency, final Supplier<Long> operations) {
     this.unit = unit;
+    this.latency = latency;
+    this.operations = operations;
     worker = new Thread(new Runnable() {
       public void run() {
         while (run) {
@@ -53,9 +58,13 @@ public class ProgressMeter {
   }
 
   private void progress() {
-    final long count = this.operations.longValue();
+//    final long count = this.operations.longValue();
+//    final long latency = this.latency.longValue();
+
+    final long count = this.operations.get();
+    final long latency = this.latency.get();
+
     final long time = System.nanoTime();
-    final long latency = this.latency.longValue();
 
     final long delta = count - lastRows;
     final long deltaTime = time - lastTime;
@@ -99,8 +108,8 @@ public class ProgressMeter {
     progress();
   }
 
-  public void inc(final long ops, final long latency) {
-    this.operations.add(ops);
-    this.latency.add(latency);
-  }
+//  public void inc(final long ops, final long latency) {
+//    this.operations.add(ops);
+//    this.latency.add(latency);
+//  }
 }
