@@ -59,11 +59,10 @@ public class Client {
   }
 
   public void send(final Request request) {
-
     final Thread thread = Thread.currentThread();
     final long r;
     if (thread instanceof WorkerThread) {
-      r = Math.abs(((WorkerThread) thread).random());
+      r = ((WorkerThread) thread).getIndex();
     } else {
       r = thread.getId();
     }
