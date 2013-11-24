@@ -1,3 +1,8 @@
+import net.sourceforge.argparse4j.ArgumentParsers;
+import net.sourceforge.argparse4j.inf.ArgumentParser;
+import net.sourceforge.argparse4j.inf.ArgumentParserException;
+import net.sourceforge.argparse4j.inf.Namespace;
+
 import java.net.InetSocketAddress;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
@@ -7,9 +12,12 @@ import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterrup
 import static java.lang.System.out;
 import static java.net.InetAddress.getLoopbackAddress;
 import static java.util.concurrent.TimeUnit.DAYS;
+import static net.sourceforge.argparse4j.impl.Arguments.storeTrue;
 import static org.jboss.netty.buffer.ChannelBuffers.EMPTY_BUFFER;
 
 public class Bench {
+
+  public static final int CPUS = Runtime.getRuntime().availableProcessors();
 
   public static void main(final String... args) throws InterruptedException {
     final InetSocketAddress address =
@@ -17,34 +25,32 @@ public class Bench {
 
     final ProgressMeter meter = new ProgressMeter();
 
-    final int threads;
-    final boolean batching;
-    final int connections;
-    final int outstanding;
+    final ArgumentParser parser = ArgumentParsers.newArgumentParser("benchmark").defaultHelp(true);
 
-    if (args.length > 0) {
-      threads = Integer.parseInt(args[0]);
-    } else {
-      threads = Runtime.getRuntime().availableProcessors();
+    final String threadsDest = parser.addArgument("-t", "--threads")
+        .type(Integer.class).setDefault(CPUS).getDest();
+    final String batchingDest = parser.addArgument("-b", "--batching")
+        .action(storeTrue()).getDest();
+    final String connectionsDest = parser.addArgument("-c", "--connections")
+        .setDefault(CPUS).getDest();
+    final String portDest = parser.addArgument("-p", "--port")
+        .setDefault(4711).getDest();
+    final String outstandingDest = parser.addArgument("-o", "--outstanding")
+        .setDefault(1000).getDest();
+
+    final Namespace options;
+    try {
+      options = parser.parseArgs(args);
+    } catch (ArgumentParserException e) {
+      parser.handleError(e);
+      System.exit(1);
+      return;
     }
 
-    if (args.length > 1) {
-      batching = Boolean.parseBoolean(args[1]);
-    } else {
-      batching = true;
-    }
-
-    if (args.length > 2) {
-      connections = Integer.parseInt(args[2]);
-    } else {
-      connections = threads;
-    }
-
-    if (args.length > 3) {
-      outstanding = Integer.parseInt(args[3]);
-    } else {
-      outstanding = 1000 * connections;
-    }
+    final int threads = options.getInt(threadsDest);
+    final boolean batching = options.getBoolean(batchingDest);
+    final int connections = options.getInt(connectionsDest);
+    final int outstanding = options.getInt(outstandingDest);
 
     out.printf("address: %s%n", address);
     out.printf("threads: %s%n", threads);
