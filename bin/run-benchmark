@@ -6,7 +6,11 @@ dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 jar="$(ls -t $dir/../target/$project*.jar | grep -v sources | grep -v javadoc | head -n 1)"
 jar="$(cd $(dirname $jar) && pwd -P)/$(basename $jar)"
 
-exec java -Dcom.sun.management.jmxremote.port=7091 \
+: ${JMX_PORT=7091}
+
+echo JMX_PORT=$JMX_PORT
+
+exec java -Dcom.sun.management.jmxremote.port=$JMX_PORT \
           -Dcom.sun.management.jmxremote.ssl=false \
           -Dcom.sun.management.jmxremote.authenticate=false \
           -XX:+UnlockCommercialFeatures -XX:+FlightRecorder \
