@@ -8,11 +8,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinWorkerThread;
 
+import static com.google.common.base.Optional.fromNullable;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static java.lang.System.out;
 import static java.net.InetAddress.getLoopbackAddress;
 import static java.util.concurrent.TimeUnit.DAYS;
-import static net.sourceforge.argparse4j.impl.Arguments.storeTrue;
+import static net.sourceforge.argparse4j.impl.Arguments.storeFalse;
 import static org.jboss.netty.buffer.ChannelBuffers.EMPTY_BUFFER;
 
 public class Bench {
@@ -29,14 +30,15 @@ public class Bench {
 
     final String threadsDest = parser.addArgument("-t", "--threads")
         .type(Integer.class).setDefault(CPUS).getDest();
-    final String batchingDest = parser.addArgument("-b", "--batching")
-        .action(storeTrue()).getDest();
-    final String connectionsDest = parser.addArgument("-c", "--connections")
-        .setDefault(CPUS).getDest();
+    final String batchingDest = parser.addArgument("--no-batching")
+        .action(storeFalse()).getDest();
     final String portDest = parser.addArgument("-p", "--port")
         .setDefault(4711).getDest();
+
+    final String connectionsDest = parser.addArgument("-c", "--connections")
+        .type(Integer.class).getDest();
     final String outstandingDest = parser.addArgument("-o", "--outstanding")
-        .setDefault(1000).getDest();
+        .type(Integer.class).getDest();
 
     final Namespace options;
     try {
@@ -49,8 +51,8 @@ public class Bench {
 
     final int threads = options.getInt(threadsDest);
     final boolean batching = options.getBoolean(batchingDest);
-    final int connections = options.getInt(connectionsDest);
-    final int outstanding = options.getInt(outstandingDest);
+    final int connections = fromNullable(options.getInt(connectionsDest)).or(threads);
+    final int outstanding = fromNullable(options.getInt(outstandingDest)).or(1000 * connections);
 
     out.printf("address: %s%n", address);
     out.printf("threads: %s%n", threads);
