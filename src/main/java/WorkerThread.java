@@ -16,7 +16,9 @@ class WorkerThread extends ForkJoinWorkerThread {
     return x;
   }
 
+  private volatile long p0, p1, p2, p3, p4, p5, p6;
   private long rand = new SecureRandom().nextInt();
+  private volatile long q0, q1, q2, q3, q4, q5, q6;
 
   public WorkerThread(final ForkJoinPool pool) {
     super(pool);

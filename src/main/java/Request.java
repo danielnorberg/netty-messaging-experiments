@@ -8,7 +8,7 @@ public class Request {
   private final ChannelBuffer payload;
 
   public Request(final ChannelBuffer payload) {
-    this(new RequestId(), payload);
+    this(RequestId.create(), payload);
   }
 
   public Request(final RequestId id, final ChannelBuffer payload) {

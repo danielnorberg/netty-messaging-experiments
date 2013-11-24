@@ -4,12 +4,21 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class RequestId {
 
-  private static final AtomicLong ID_COUNTER = new AtomicLong();
+  private static final AtomicLong ANONYMOUS_ID_COUNTER = new AtomicLong();
   private final long value;
   private final long timestampMillis;
 
-  public RequestId() {
-    this(ID_COUNTER.incrementAndGet(), System.currentTimeMillis());
+  public static RequestId create() {
+    final Thread thread = Thread.currentThread();
+    final long id;
+    if (thread instanceof WorkerThread) {
+      id = ((WorkerThread) thread).random();
+    } else {
+      id = ANONYMOUS_ID_COUNTER.getAndIncrement();
+    }
+
+    return new RequestId(id, System.currentTimeMillis());
+
   }
 
   public RequestId(final long value, final long timestampMillis) {
@@ -55,7 +64,7 @@ public class RequestId {
 
   @Override
   public String toString() {
-    return String.valueOf(value);
+    return value + "@" + timestampMillis;
   }
 
   public static RequestId parse(final ChannelBuffer msg) {
