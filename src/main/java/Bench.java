@@ -46,7 +46,7 @@ public class Bench {
       return;
     }
 
-    final int port = options.getInt(portDest)
+    final int port = options.getInt(portDest);
     final int threads = options.getInt(threadsDest);
     final boolean batching = options.getBoolean(batchingDest);
     final int connections = fromNullable(options.getInt(connectionsDest)).or(threads);
