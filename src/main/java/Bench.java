@@ -21,9 +21,6 @@ public class Bench {
   public static final int CPUS = Runtime.getRuntime().availableProcessors();
 
   public static void main(final String... args) throws InterruptedException {
-    final InetSocketAddress address =
-        new InetSocketAddress(getLoopbackAddress(), 4711);
-
     final ProgressMeter meter = new ProgressMeter();
 
     final ArgumentParser parser = ArgumentParsers.newArgumentParser("benchmark").defaultHelp(true);
@@ -49,10 +46,13 @@ public class Bench {
       return;
     }
 
+    final int port = options.getInt(portDest)
     final int threads = options.getInt(threadsDest);
     final boolean batching = options.getBoolean(batchingDest);
     final int connections = fromNullable(options.getInt(connectionsDest)).or(threads);
     final int outstanding = fromNullable(options.getInt(outstandingDest)).or(1000 * connections);
+
+    final InetSocketAddress address = new InetSocketAddress(getLoopbackAddress(), port);
 
     out.printf("address: %s%n", address);
     out.printf("threads: %s%n", threads);
