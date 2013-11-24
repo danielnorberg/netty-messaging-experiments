@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class Client {
 
@@ -60,13 +61,13 @@ public class Client {
 
   public void send(final Request request) {
     final Thread thread = Thread.currentThread();
-    final long r;
+    final int index;
     if (thread instanceof WorkerThread) {
-      r = ((WorkerThread) thread).getIndex();
+      final long r = ((WorkerThread) thread).getIndex();
+      index = (int) (r % channels.size());
     } else {
-      r = thread.getId();
+      index = ThreadLocalRandom.current().nextInt(0, channels.size());
     }
-    final int index = (int) (r % channels.size());
     final Channel channel = channels.get(index);
     channel.write(request);
   }

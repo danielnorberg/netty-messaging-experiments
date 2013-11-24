@@ -3,6 +3,7 @@ import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
+import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.ExceptionEvent;
 import org.jboss.netty.channel.MessageEvent;
@@ -14,6 +15,7 @@ import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class Server {
 
@@ -24,7 +26,6 @@ public class Server {
 
   public Server(final InetSocketAddress address, final Executor executor,
                 final boolean batching, final RequestHandler requestHandler) {
-    final InetSocketAddress address1 = address;
     this.requestHandler = requestHandler;
 
     final NioServerSocketChannelFactory channelFactory = new NioServerSocketChannelFactory();
@@ -35,8 +36,9 @@ public class Server {
         final ChannelPipeline pipeline = Channels.pipeline(
             new ReplyEncoder(),
 
-            new MessageFrameDecoder(),
             new ExecutionHandler(executor),
+
+            new MessageFrameDecoder(),
             new RequestDecoder(),
             new Handler());
 
@@ -51,7 +53,15 @@ public class Server {
     this.channel = bootstrap.bind(address);
   }
 
+  static final AtomicLong CHANNEL_ID_COUNTER = new AtomicLong();
+
   class Handler extends SimpleChannelUpstreamHandler {
+
+    @Override
+    public void channelConnected(final ChannelHandlerContext ctx, final ChannelStateEvent e)
+        throws Exception {
+      e.getChannel().setAttachment(CHANNEL_ID_COUNTER.getAndIncrement());
+    }
 
     @Override
     public void messageReceived(final ChannelHandlerContext ctx, final MessageEvent e)
