@@ -1,4 +1,7 @@
+import org.jboss.netty.handler.execution.OrderedMemoryAwareThreadPoolExecutor;
+
 import java.net.InetSocketAddress;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinWorkerThread;
 
@@ -51,8 +54,13 @@ public class Bench {
     out.printf("connections: %s%n", connections);
     out.printf("outstanding: %s%n", outstanding);
 
+//    final ForkJoinPool executor = forkJoinPool(threads);
 
-    final ForkJoinPool executor = forkJoinPool(threads);
+    final int maxChannelMemorySize = 128 * 1024 * 1024;
+    final int maxTotalMemorySize = 1024 * 1024 * 1024;
+    final ExecutorService executor = new OrderedMemoryAwareThreadPoolExecutor(threads,
+                                                                              maxChannelMemorySize,
+                                                                              maxTotalMemorySize);
 
     final Server server = new Server(address, executor, batching, new RequestHandler() {
       @Override
@@ -78,20 +86,21 @@ public class Bench {
 
   private static ForkJoinPool forkJoinPool(final int threads) {
     return new ForkJoinPool(threads,
-                                                   new ForkJoinPool.ForkJoinWorkerThreadFactory() {
-                                                     @Override
-                                                     public ForkJoinWorkerThread newThread(
-                                                         final ForkJoinPool pool) {
-                                                       return new WorkerThread(pool);
-                                                     }
-                                                   },
-                                                   new Thread.UncaughtExceptionHandler() {
-                                                     @Override
-                                                     public void uncaughtException(final Thread t,
-                                                                                   final Throwable e) {
-                                                       e.printStackTrace();
-                                                     }
-                                                   }, true);
+                            new ForkJoinPool.ForkJoinWorkerThreadFactory() {
+                              @Override
+                              public ForkJoinWorkerThread newThread(
+                                  final ForkJoinPool pool) {
+                                return new WorkerThread(pool);
+                              }
+                            },
+                            new Thread.UncaughtExceptionHandler() {
+                              @Override
+                              public void uncaughtException(final Thread t,
+                                                            final Throwable e) {
+                                e.printStackTrace();
+                              }
+                            }, true
+    );
   }
 
 }
