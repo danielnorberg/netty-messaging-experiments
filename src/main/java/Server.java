@@ -37,9 +37,8 @@ public class Server {
         final ChannelPipeline pipeline = Channels.pipeline(
             new ReplyEncoder(),
 
-            new ExecutionHandler(executor),
-
             new MessageFrameDecoder(),
+            new ExecutionHandler(executor),
             new RequestDecoder(),
             new Handler());
 
