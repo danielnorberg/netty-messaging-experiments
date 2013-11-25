@@ -7,7 +7,7 @@ import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.handler.queue.BufferedWriteHandler;
 
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
+import jsr166.concurrent.atomic.AtomicInteger;
 
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 

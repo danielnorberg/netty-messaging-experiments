@@ -1,6 +1,6 @@
 import org.jboss.netty.buffer.ChannelBuffer;
 
-import java.util.concurrent.atomic.AtomicLong;
+import jsr166.concurrent.atomic.AtomicLong;
 
 public class RequestId {
 

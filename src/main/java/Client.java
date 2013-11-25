@@ -18,7 +18,8 @@ import org.slf4j.LoggerFactory;
 import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ThreadLocalRandom;
+
+import jsr166.concurrent.ThreadLocalRandom;
 
 public class Client {
 

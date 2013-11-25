@@ -8,8 +8,8 @@ import net.sourceforge.argparse4j.inf.Namespace;
 
 import java.net.InetSocketAddress;
 import java.util.List;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.ForkJoinWorkerThread;
+import jsr166.concurrent.ForkJoinPool;
+import jsr166.concurrent.ForkJoinWorkerThread;
 
 import static com.google.common.base.Optional.fromNullable;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;

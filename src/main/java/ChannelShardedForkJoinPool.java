@@ -4,11 +4,12 @@ import org.jboss.netty.channel.Channel;
 import org.jboss.netty.handler.execution.ChannelEventRunnable;
 
 import java.util.List;
-import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.ForkJoinWorkerThread;
 import java.util.concurrent.TimeUnit;
+
+import jsr166.concurrent.AbstractExecutorService;
+import jsr166.concurrent.ForkJoinPool;
+import jsr166.concurrent.ForkJoinWorkerThread;
 
 import static java.lang.Math.abs;
 

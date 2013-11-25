@@ -15,7 +15,8 @@ import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicLong;
+
+import jsr166.concurrent.atomic.AtomicLong;
 
 public class Server {
 

@@ -1,7 +1,7 @@
 import java.security.SecureRandom;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.ForkJoinWorkerThread;
-import java.util.concurrent.atomic.AtomicInteger;
+import jsr166.concurrent.ForkJoinPool;
+import jsr166.concurrent.ForkJoinWorkerThread;
+import jsr166.concurrent.atomic.AtomicInteger;
 
 class WorkerThread extends ForkJoinWorkerThread {
 
