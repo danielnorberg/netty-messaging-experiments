@@ -16,12 +16,13 @@ echo NEW_SIZE=$NEW_SIZE
 echo
 
 CMD="java -Dcom.sun.management.jmxremote.port=$JMX_PORT \
-         -Dcom.sun.management.jmxremote.ssl=false \
-         -Dcom.sun.management.jmxremote.authenticate=false \
-         -XX:+UnlockCommercialFeatures -XX:+FlightRecorder \
-         -Xmx$HEAP_SIZE -Xms$HEAP_SIZE -XX:NewSize=$NEW_SIZE \
-         -jar $jar \
-         $@"
+          -Dcom.sun.management.jmxremote.ssl=false \
+          -Dcom.sun.management.jmxremote.authenticate=false \
+          -XX:+UnlockCommercialFeatures -XX:+FlightRecorder \
+          -Xmx$HEAP_SIZE -Xms$HEAP_SIZE -XX:NewSize=$NEW_SIZE \
+          -XX:+UseTLAB \
+          -jar $jar \
+          $@"
 
 echo $CMD
 echo
