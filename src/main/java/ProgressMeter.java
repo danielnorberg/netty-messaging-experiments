@@ -4,6 +4,20 @@ import java.util.ArrayDeque;
 
 public class ProgressMeter {
 
+  private final Supplier<Counters> counters;
+
+  public static class Counters {
+
+    final long requests;
+    final long latency;
+
+    public Counters(final long requests, final long latency) {
+      this.requests = requests;
+      this.latency = latency;
+    }
+  }
+
+
   static class Delta {
 
     Delta(final long ops, final long time) {
@@ -22,26 +36,19 @@ public class ProgressMeter {
 
   final private String unit;
 
-//  final private LongAdder latency = new LongAdder();
-//  final private LongAdder operations = new LongAdder();
-
-  private final Supplier<Long> latency;
-  private final Supplier<Long> operations;
-
   final private ArrayDeque<Delta> deltas = new ArrayDeque<Delta>();
 
   private volatile boolean run = true;
 
   private final Thread worker;
 
-  public ProgressMeter(final Supplier<Long> latency, final Supplier<Long> operations) {
-    this("ops", latency, operations);
+  public ProgressMeter(final Supplier<Counters> countersSupplier) {
+    this("ops", countersSupplier);
   }
 
-  public ProgressMeter(final String unit, final Supplier<Long> latency, final Supplier<Long> operations) {
+  public ProgressMeter(final String unit, final Supplier<Counters> countersSupplier) {
     this.unit = unit;
-    this.latency = latency;
-    this.operations = operations;
+    this.counters = countersSupplier;
     worker = new Thread(new Runnable() {
       public void run() {
         while (run) {
@@ -58,11 +65,10 @@ public class ProgressMeter {
   }
 
   private void progress() {
-//    final long count = this.operations.longValue();
-//    final long latency = this.latency.longValue();
+    final Counters counters = this.counters.get();
 
-    final long count = this.operations.get();
-    final long latency = this.latency.get();
+    final long count = counters.requests;
+    final long latency = counters.latency;
 
     final long time = System.nanoTime();
 
