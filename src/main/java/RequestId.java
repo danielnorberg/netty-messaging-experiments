@@ -12,7 +12,7 @@ public class RequestId {
     final Thread thread = Thread.currentThread();
     final long id;
     if (thread instanceof WorkerThread) {
-      id = ((WorkerThread) thread).random();
+      id = ((WorkerThread) thread).nextRequestId();
     } else {
       id = ANONYMOUS_ID_COUNTER.getAndIncrement();
     }
