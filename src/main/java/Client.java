@@ -60,15 +60,21 @@ public class Client {
   }
 
   public void send(final Request request) {
-    final Thread thread = Thread.currentThread();
-    final int index;
-    if (thread instanceof WorkerThread) {
-      final long r = ((WorkerThread) thread).getIndex();
-      index = (int) (r % channels.size());
+    final Channel channel;
+    final int n = channels.size();
+    if (n == 1) {
+      channel = channels.get(0);
     } else {
-      index = ThreadLocalRandom.current().nextInt(0, channels.size());
+      final Thread thread = Thread.currentThread();
+      final int index;
+      if (thread instanceof WorkerThread) {
+        final long r = ((WorkerThread) thread).getIndex();
+        index = (int) (r % n);
+      } else {
+        index = ThreadLocalRandom.current().nextInt(0, n);
+      }
+      channel = channels.get(index);
     }
-    final Channel channel = channels.get(index);
     channel.write(request);
   }
 
