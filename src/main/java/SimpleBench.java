@@ -139,10 +139,17 @@ public class SimpleBench {
       instances = 1;
     }
 
+    final int port;
+    if (args.length > 1) {
+      port = Integer.parseInt(args[1]);
+    } else {
+      port = 4711;
+    }
+
     final List<Client> clients = Lists.newArrayList();
 
     for (int i = 0; i < instances; i++) {
-      final InetSocketAddress address = new InetSocketAddress(getLoopbackAddress(), 4711 + i);
+      final InetSocketAddress address = new InetSocketAddress(getLoopbackAddress(), port + i);
       final Server server = new Server(address);
       final Client client = new Client(address);
       clients.add(client);
