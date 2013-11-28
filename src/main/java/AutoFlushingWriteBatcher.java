@@ -7,7 +7,7 @@ import org.jboss.netty.channel.MessageEvent;
 import org.jboss.netty.handler.queue.BufferedWriteHandler;
 
 import java.util.List;
-import jsr166.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
@@ -16,10 +16,16 @@ public class AutoFlushingWriteBatcher extends BufferedWriteHandler {
   private static final long MAX_DELAY_NANOS = MICROSECONDS.toNanos(100);
   private static final int MAX_BUFFER_SIZE = 4096;
 
-  private final AtomicInteger bufferSize = new AtomicInteger();
+  private static final AtomicIntegerFieldUpdater<AutoFlushingWriteBatcher> bufferSizeUpdater =
+      AtomicIntegerFieldUpdater.newUpdater(AutoFlushingWriteBatcher.class, "bufferSize");
 
+  public volatile long p0, p1, p2, p3, p4, p5, p6, p7;
+  public volatile long q0, q1, q2, q3, q4, q5, q6, q7;
   private volatile long lastFlushNanos;
   private volatile long lastWriteNanos;
+  private volatile int bufferSize;
+  public volatile long r0, r1, r2, r3, r4, r5, r6, r7;
+  public volatile long s0, s1, s2, s3, s4, s5, s6, s7;
 
   // Keeps tracks of all batchers. Assumes that connection churn is low.
   private static final List<AutoFlushingWriteBatcher> batchers = Lists.newCopyOnWriteArrayList();
@@ -98,7 +104,7 @@ public class AutoFlushingWriteBatcher extends BufferedWriteHandler {
 
     // Calculate new size of outgoing message buffer
     final ChannelBuffer data = (ChannelBuffer) e.getMessage();
-    final int newBufferSize = bufferSize.addAndGet(data.readableBytes());
+    final int newBufferSize = bufferSizeUpdater.addAndGet(this, data.readableBytes());
 
     // Calculate how long it was since the last outgoing message
     final long now = System.nanoTime();
@@ -119,7 +125,7 @@ public class AutoFlushingWriteBatcher extends BufferedWriteHandler {
     lastFlushNanos = System.nanoTime();
 
     // The message buffer will become empty. This is racy but we don't care.
-    bufferSize.set(0);
+    bufferSize = 0;
 
     super.flush();
   }
