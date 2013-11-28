@@ -8,13 +8,15 @@ class WorkerThread extends ForkJoinWorkerThread {
   private static final AtomicInteger INDEX_COUNTER = new AtomicInteger();
 
 
-  public volatile long p0, p1, p2, p3, p4, p5, p6 = 6L;
+  public volatile long p0, p1, p2, p3, p4, p5, p6, p7;
+  public volatile long q0, q1, q2, q3, q4, q5, q6, q7;
   private final int index;
   private long rand = new SecureRandom().nextInt();
   private long requestCounter;
   private long latencyCounter;
   private long requestIdCounter;
-  public volatile long q0, q1, q2, q3, q4, q5, q6 = 6L;
+  public volatile long r0, r1, r2, r3, r4, r5, r6, r7;
+  public volatile long s0, s1, s2, s3, s4, s5, s6, s7;
 
   public WorkerThread(final ForkJoinPool pool) {
     super(pool);
