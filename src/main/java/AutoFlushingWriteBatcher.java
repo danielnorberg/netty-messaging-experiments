@@ -50,9 +50,9 @@ public class AutoFlushingWriteBatcher extends BufferedWriteHandler {
             }
           }
 
-          // Sleep a millisecond before going through all batchers again.
+          // Sleep ten milliseconds before going through all batchers again.
           try {
-            Thread.sleep(1);
+            Thread.sleep(10);
           } catch (InterruptedException e) {
             // ignore
           }
