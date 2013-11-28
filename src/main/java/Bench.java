@@ -1,5 +1,8 @@
 import com.google.common.base.Supplier;
 import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.MoreExecutors;
+
+import com.netflix.hystrix.util.LongAdder;
 
 import net.sourceforge.argparse4j.ArgumentParsers;
 import net.sourceforge.argparse4j.inf.ArgumentParser;
@@ -8,6 +11,8 @@ import net.sourceforge.argparse4j.inf.Namespace;
 
 import java.net.InetSocketAddress;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+
 import jsr166.concurrent.ForkJoinPool;
 import jsr166.concurrent.ForkJoinWorkerThread;
 
@@ -31,6 +36,8 @@ public class Bench {
         .type(Integer.class).setDefault(1).getDest();
     final String threadsDest = parser.addArgument("-t", "--threads")
         .type(Integer.class).setDefault(CPUS).getDest();
+    final String workersDest = parser.addArgument("--no-workers")
+        .type(Boolean.class).action(storeFalse()).getDest();
     final String batchingDest = parser.addArgument("--no-batching")
         .type(Boolean.class).action(storeFalse()).getDest();
     final String portDest = parser.addArgument("-p", "--port")
@@ -55,6 +62,7 @@ public class Bench {
     final boolean batching = options.getBoolean(batchingDest);
     final int connections = fromNullable(options.getInt(connectionsDest)).or(threads);
     final int outstanding = fromNullable(options.getInt(outstandingDest)).or(1000 * connections);
+    final boolean workers = options.getBoolean(workersDest);
 
     final int instances = options.getInt(instancesDest);
 
@@ -62,6 +70,7 @@ public class Bench {
 
     out.printf("instances: %s%n", instances);
     out.printf("threads: %s%n", threads);
+    out.printf("workers: %s%n", !workers);
     out.printf("batching: %s%n", batching);
     out.printf("connections: %s%n", connections);
     out.printf("outstanding: %s%n", outstanding);
@@ -71,7 +80,7 @@ public class Bench {
       final InetSocketAddress address = new InetSocketAddress(getLoopbackAddress(), port + i);
       out.printf("address: %s%n", address);
       final Supplier<ProgressMeter.Counters> supplier = run(address, threads, batching, connections,
-                                                            outstanding);
+                                                            outstanding, workers);
       counterSuppliers.add(supplier);
     }
 
@@ -92,12 +101,69 @@ public class Bench {
     sleepUninterruptibly(1, DAYS);
   }
 
+  interface Counter {
+    void inc(long latencyMillis);
+  }
+
   private static Supplier<ProgressMeter.Counters> run(final InetSocketAddress address,
                                                       final int threads, final boolean batching,
-                                                      final int connections, final int outstanding)
+                                                      final int connections, final int outstanding,
+                                                      final boolean workers)
       throws InterruptedException {
 
-    final ChannelShardedForkJoinPool executor = new ChannelShardedForkJoinPool(threads);
+    final ExecutorService executor;
+    final Supplier<ProgressMeter.Counters> countersSupplier;
+
+    final Counter counter;
+
+    if (workers) {
+      final ChannelShardedForkJoinPool shardedForkJoinPool =
+          new ChannelShardedForkJoinPool(threads);
+      executor = shardedForkJoinPool;
+
+      countersSupplier = new Supplier<ProgressMeter.Counters>() {
+        @Override
+        public ProgressMeter.Counters get() {
+          long requestsSum = 0;
+          long latencySum = 0;
+          for (final WorkerThread worker : shardedForkJoinPool.getWorkers()) {
+            requestsSum += worker.getTotalRequests();
+            latencySum += worker.getTotalLatency();
+          }
+          return new ProgressMeter.Counters(requestsSum, latencySum);
+        }
+      };
+
+      counter = new Counter() {
+        @Override
+        public void inc(final long latencyMillis) {
+          Thread thread = Thread.currentThread();
+          if (thread instanceof WorkerThread) {
+            ((WorkerThread) thread).incRequestCounter(latencyMillis);
+          }
+        }
+      };
+    } else {
+      executor = MoreExecutors.sameThreadExecutor();
+
+      final LongAdder requests = new LongAdder();
+      final LongAdder latency = new LongAdder();
+
+      counter = new Counter() {
+        @Override
+        public void inc(final long latencyMillis) {
+          requests.increment();
+          latency.add(latencyMillis);
+        }
+      };
+
+      countersSupplier = new Supplier<ProgressMeter.Counters>() {
+        @Override
+        public ProgressMeter.Counters get() {
+          return new ProgressMeter.Counters(requests.longValue(), latency.longValue());
+        }
+      };
+    }
 
     final Server server = new Server(address, executor, batching, new RequestHandler() {
       @Override
@@ -111,10 +177,7 @@ public class Bench {
       public void handleReply(final Client client, final Reply reply) {
         final long requestTimestampMillis = reply.getRequestId().getTimestampMillis();
         final long latencyMillis = System.currentTimeMillis() - requestTimestampMillis;
-        Thread thread = Thread.currentThread();
-        if (thread instanceof WorkerThread) {
-          ((WorkerThread) thread).incRequestCounter(latencyMillis);
-        }
+        counter.inc(latencyMillis);
         client.send(new Request(EMPTY_BUFFER));
       }
     });
@@ -123,18 +186,7 @@ public class Bench {
       client.send(new Request(EMPTY_BUFFER));
     }
 
-    return new Supplier<ProgressMeter.Counters>() {
-      @Override
-      public ProgressMeter.Counters get() {
-        long requestsSum = 0;
-        long latencySum = 0;
-        for (final WorkerThread worker : executor.getWorkers()) {
-          requestsSum += worker.getTotalRequests();
-          latencySum += worker.getTotalLatency();
-        }
-        return new ProgressMeter.Counters(requestsSum, latencySum);
-      }
-    };
+    return countersSupplier;
   }
 
   private static ForkJoinPool forkJoinPool(final int threads) {
