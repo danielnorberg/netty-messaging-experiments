@@ -1,10 +1,9 @@
 import com.google.common.base.Supplier;
 import com.google.common.collect.Lists;
 
-import com.netflix.hystrix.util.LongAdder;
-
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.bootstrap.ServerBootstrap;
+import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
@@ -70,7 +69,7 @@ public class SimpleBench {
 
   static class Client {
 
-    public Client(final InetSocketAddress address, final LongAdder counter)
+    public Client(final InetSocketAddress address)
         throws InterruptedException {
       final ClientSocketChannelFactory channelFactory = new NioClientSocketChannelFactory(
           Executors.newCachedThreadPool(), Executors.newCachedThreadPool(), 1);
@@ -85,7 +84,7 @@ public class SimpleBench {
 
               new MessageFrameDecoder(),
               new ReplyDecoder(),
-              new Handler(counter)
+              new Handler()
           );
         }
       });
@@ -93,27 +92,34 @@ public class SimpleBench {
       bootstrap.connect(address);
     }
 
+    public volatile long p0, p1, p2, p3, p4, p5, p6, p7;
+    public volatile long q0, q1, q2, q3, q4, q5, q6, q7;
+    private long counter;
+    public volatile long r0, r1, r2, r3, r4, r5, r6, r7;
+    public volatile long s0, s1, s2, s3, s4, s5, s6, s7;
+
     private class Handler extends SimpleChannelUpstreamHandler {
-
-      private final LongAdder counter;
-
-      public Handler(final LongAdder counter) {
-        this.counter = counter;
-      }
 
       @Override
       public void channelConnected(final ChannelHandlerContext ctx, final ChannelStateEvent e)
           throws Exception {
+        final Channel channel = e.getChannel();
         for (int i = 0; i < 1000; i++) {
-          e.getChannel().write(new Request(EMPTY_BUFFER));
+          send(channel);
         }
+      }
+
+      private void send(final Channel channel) {
+        final RequestId requestId = new RequestId(counter, 0);
+        final Request request = new Request(requestId, EMPTY_BUFFER);
+        channel.write(request);
       }
 
       @Override
       public void messageReceived(final ChannelHandlerContext ctx, final MessageEvent e)
           throws Exception {
-        counter.increment();
-        e.getChannel().write(new Request(EMPTY_BUFFER));
+        counter++;
+        send(e.getChannel());
       }
 
       @Override
@@ -133,22 +139,21 @@ public class SimpleBench {
       instances = 1;
     }
 
-    final List<LongAdder> counters = Lists.newArrayList();
+    final List<Client> clients = Lists.newArrayList();
 
     for (int i = 0; i < instances; i++) {
-      final LongAdder counter = new LongAdder();
       final InetSocketAddress address = new InetSocketAddress(getLoopbackAddress(), 4711 + i);
       final Server server = new Server(address);
-      final Client client = new Client(address, counter);
-      counters.add(counter);
+      final Client client = new Client(address);
+      clients.add(client);
     }
 
     final ProgressMeter meter = new ProgressMeter(new Supplier<ProgressMeter.Counters>() {
       @Override
       public ProgressMeter.Counters get() {
         long requests = 0;
-        for (final LongAdder counter : counters) {
-          requests += counter.longValue();
+        for (final Client client : clients) {
+          requests += client.counter;
         }
         return new ProgressMeter.Counters(requests, 0);
       }
