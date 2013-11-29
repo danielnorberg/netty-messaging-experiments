@@ -1,8 +1,11 @@
+import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.common.collect.Lists;
 
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.bootstrap.ServerBootstrap;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelPipeline;
@@ -21,10 +24,12 @@ import java.util.List;
 
 import jsr166.concurrent.Executors;
 
+import static com.google.common.base.Charsets.UTF_8;
 import static java.net.InetAddress.getLoopbackAddress;
-import static org.jboss.netty.buffer.ChannelBuffers.EMPTY_BUFFER;
 
 public class SimpleBench {
+
+  static final ChannelBuffer PAYLOAD = ChannelBuffers.copiedBuffer(Strings.repeat(".", 50), UTF_8);
 
   static class Server {
 
@@ -37,10 +42,9 @@ public class SimpleBench {
         @Override
         public ChannelPipeline getPipeline() throws Exception {
           return Channels.pipeline(new AutoFlushingWriteBatcher(),
-                                   new ReplyEncoder(),
+                                   new MessageFrameEncoder(),
 
                                    new MessageFrameDecoder(),
-                                   new RequestDecoder(),
                                    new Handler());
         }
       });
@@ -53,9 +57,7 @@ public class SimpleBench {
       @Override
       public void messageReceived(final ChannelHandlerContext ctx, final MessageEvent e)
           throws Exception {
-        final Request request = (Request) e.getMessage();
-        final Reply reply = request.makeReply(418);
-        e.getChannel().write(reply);
+        e.getChannel().write(PAYLOAD.duplicate());
       }
 
       @Override
@@ -80,10 +82,9 @@ public class SimpleBench {
         public ChannelPipeline getPipeline() throws Exception {
           return Channels.pipeline(
               new AutoFlushingWriteBatcher(),
-              new RequestEncoder(),
+              new MessageFrameEncoder(),
 
               new MessageFrameDecoder(),
-              new ReplyDecoder(),
               new Handler()
           );
         }
@@ -110,9 +111,7 @@ public class SimpleBench {
       }
 
       private void send(final Channel channel) {
-        final RequestId requestId = new RequestId(counter, 0);
-        final Request request = new Request(requestId, EMPTY_BUFFER);
-        channel.write(request);
+        channel.write(PAYLOAD.duplicate());
       }
 
       @Override
