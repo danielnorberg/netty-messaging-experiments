@@ -26,7 +26,7 @@ CMD="java -Dcom.sun.management.jmxremote.port=$JMX_PORT \
           -XX:+UseCondCardMark \
           $JVM_ARGS \
           -cp $jar \
-          SimpleBench \
+          SimpleBench2 \
           $@"
 
 echo $CMD
