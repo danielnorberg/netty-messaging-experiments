@@ -9,10 +9,12 @@ jar="$(cd $(dirname $jar) && pwd -P)/$(basename $jar)"
 : ${JMX_PORT=7091}
 : ${HEAP_SIZE=2g}
 : ${NEW_SIZE=1g}
+: ${JVM_ARGS=""}
 
 echo JMX_PORT=$JMX_PORT
 echo HEAP_SIZE=$HEAP_SIZE
 echo NEW_SIZE=$NEW_SIZE
+echo JVM_ARGS=$JVM_ARGS
 echo
 
 CMD="java -Dcom.sun.management.jmxremote.port=$JMX_PORT \
@@ -22,6 +24,7 @@ CMD="java -Dcom.sun.management.jmxremote.port=$JMX_PORT \
           -Xmx$HEAP_SIZE -Xms$HEAP_SIZE -XX:NewSize=$NEW_SIZE \
           -XX:+UseTLAB \
           -XX:+UseCondCardMark \
+          $JVM_ARGS \
           -cp $jar \
           SimpleBench \
           $@"
