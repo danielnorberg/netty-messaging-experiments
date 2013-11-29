@@ -25,17 +25,19 @@ import java.util.List;
 import jsr166.concurrent.Executors;
 
 import static com.google.common.base.Charsets.UTF_8;
+import static java.lang.System.out;
 import static java.net.InetAddress.getLoopbackAddress;
 
 public class SimpleBench {
 
   static final ChannelBuffer PAYLOAD = ChannelBuffers.copiedBuffer(Strings.repeat(".", 50), UTF_8);
+  public static final int CPUS = Runtime.getRuntime().availableProcessors();
 
   static class Server {
 
     public Server(final InetSocketAddress address) {
       final NioServerSocketChannelFactory channelFactory = new NioServerSocketChannelFactory(
-          Executors.newCachedThreadPool(), Executors.newCachedThreadPool(), 1);
+          Executors.newCachedThreadPool(), Executors.newCachedThreadPool(), CPUS);
 
       final ServerBootstrap bootstrap = new ServerBootstrap(channelFactory);
       bootstrap.setPipelineFactory(new ChannelPipelineFactory() {
@@ -71,10 +73,10 @@ public class SimpleBench {
 
   static class Client {
 
-    public Client(final InetSocketAddress address)
+    public Client(final InetSocketAddress address, final int connections)
         throws InterruptedException {
       final ClientSocketChannelFactory channelFactory = new NioClientSocketChannelFactory(
-          Executors.newCachedThreadPool(), Executors.newCachedThreadPool(), 1);
+          Executors.newCachedThreadPool(), Executors.newCachedThreadPool(), CPUS);
 
       final ClientBootstrap bootstrap = new ClientBootstrap(channelFactory);
       bootstrap.setPipelineFactory(new ChannelPipelineFactory() {
@@ -89,8 +91,9 @@ public class SimpleBench {
           );
         }
       });
-
-      bootstrap.connect(address);
+      for (int i = 0; i < connections; i++) {
+        bootstrap.connect(address);
+      }
     }
 
     public volatile long p0, p1, p2, p3, p4, p5, p6, p7;
@@ -138,19 +141,30 @@ public class SimpleBench {
       instances = 1;
     }
 
-    final int port;
+    final int connections;
     if (args.length > 1) {
-      port = Integer.parseInt(args[1]);
+      connections = Integer.parseInt(args[1]);
+    } else {
+      connections = 1;
+    }
+
+    final int port;
+    if (args.length > 2) {
+      port = Integer.parseInt(args[2]);
     } else {
       port = 4711;
     }
+
+    out.printf("instances: %s%n", instances);
+    out.printf("connections: %s%n", connections);
+    out.printf("port: %s%n", port);
 
     final List<Client> clients = Lists.newArrayList();
 
     for (int i = 0; i < instances; i++) {
       final InetSocketAddress address = new InetSocketAddress(getLoopbackAddress(), port + i);
       final Server server = new Server(address);
-      final Client client = new Client(address);
+      final Client client = new Client(address, connections);
       clients.add(client);
     }
 
