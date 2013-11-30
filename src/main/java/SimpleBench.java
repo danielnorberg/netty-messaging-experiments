@@ -40,6 +40,7 @@ public class SimpleBench {
           Executors.newCachedThreadPool(), Executors.newCachedThreadPool(), CPUS);
 
       final ServerBootstrap bootstrap = new ServerBootstrap(channelFactory);
+      bootstrap.setOption("child.tcpNoDelay", true);
       bootstrap.setPipelineFactory(new ChannelPipelineFactory() {
         @Override
         public ChannelPipeline getPipeline() throws Exception {
@@ -79,6 +80,7 @@ public class SimpleBench {
           Executors.newCachedThreadPool(), Executors.newCachedThreadPool(), CPUS);
 
       final ClientBootstrap bootstrap = new ClientBootstrap(channelFactory);
+      bootstrap.setOption("tcpNoDelay", true);
       bootstrap.setPipelineFactory(new ChannelPipelineFactory() {
         @Override
         public ChannelPipeline getPipeline() throws Exception {
