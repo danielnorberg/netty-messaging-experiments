@@ -8,18 +8,18 @@ import java.util.List;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.buffer.Unpooled;
-import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
-import io.netty.handler.codec.LengthFieldPrepender;
 import io.netty.util.ReferenceCountUtil;
 
 import static com.google.common.base.Charsets.UTF_8;
@@ -33,22 +33,20 @@ public class SimpleBenchNetty4 {
           Unpooled.unmodifiableBuffer(
               Unpooled.copiedBuffer(Strings.repeat(".", 50), UTF_8)));
 
-  public static final int CPUS = Runtime.getRuntime().availableProcessors();
-
   static class Server {
 
     public Server(final InetSocketAddress address) throws InterruptedException {
-      final EventLoopGroup bossGroup = new NioEventLoopGroup();
       final EventLoopGroup workerGroup = new NioEventLoopGroup();
 
       final ServerBootstrap b = new ServerBootstrap();
-      b.group(bossGroup, workerGroup)
+      b.group(workerGroup)
           .channel(NioServerSocketChannel.class)
+          .childOption(ChannelOption.TCP_NODELAY, true)
+          .childOption(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
           .childHandler(new ChannelInitializer<SocketChannel>() {
             @Override
             protected void initChannel(final SocketChannel ch) throws Exception {
               ch.pipeline().addLast(
-                  new LengthFieldPrepender(4),
                   new LengthFieldBasedFrameDecoder(128 * 1024 * 1024, 0, 4, 0, 4),
                   new Handler());
             }
@@ -59,10 +57,17 @@ public class SimpleBenchNetty4 {
 
     class Handler extends ChannelInboundHandlerAdapter {
 
+      BatchWriter writer;
+
+      @Override
+      public void channelActive(final ChannelHandlerContext ctx) throws Exception {
+        writer = new BatchWriter(ctx.channel());
+      }
+
       @Override
       public void channelRead(final ChannelHandlerContext ctx, final Object msg) throws Exception {
         try {
-          ctx.writeAndFlush(PAYLOAD.duplicate());
+          writer.write(PAYLOAD.duplicate());
         } finally {
           ReferenceCountUtil.release(msg);
         }
@@ -79,11 +84,12 @@ public class SimpleBenchNetty4 {
       final Bootstrap b = new Bootstrap();
       b.group(workerGroup)
           .channel(NioSocketChannel.class)
+          .option(ChannelOption.TCP_NODELAY, true)
+          .option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
           .handler(new ChannelInitializer<SocketChannel>() {
             @Override
             protected void initChannel(final SocketChannel ch) throws Exception {
               ch.pipeline().addLast(
-                  new LengthFieldPrepender(4),
                   new LengthFieldBasedFrameDecoder(128 * 1024 * 1024, 0, 4, 0, 4),
                   new Handler());
             }
@@ -102,8 +108,11 @@ public class SimpleBenchNetty4 {
 
     private class Handler extends ChannelInboundHandlerAdapter {
 
+      BatchWriter writer;
+
       @Override
       public void channelActive(final ChannelHandlerContext ctx) throws Exception {
+        writer = new BatchWriter(ctx.channel());
         for (int i = 0; i < 1000; i++) {
           send(ctx);
         }
@@ -111,13 +120,7 @@ public class SimpleBenchNetty4 {
       }
 
       private void send(final ChannelHandlerContext ctx) {
-        final ChannelFuture f = ctx.write(PAYLOAD.duplicate());
-//        f.addListener(new ChannelFutureListener() {
-//          @Override
-//          public void operationComplete(final ChannelFuture future) throws Exception {
-//            System.out.println("sent");
-//          }
-//        });
+        writer.write(PAYLOAD.duplicate());
       }
 
       @Override
