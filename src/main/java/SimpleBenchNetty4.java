@@ -19,7 +19,6 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.util.ReferenceCountUtil;
 
 import static com.google.common.base.Charsets.UTF_8;
@@ -47,7 +46,7 @@ public class SimpleBenchNetty4 {
             @Override
             protected void initChannel(final SocketChannel ch) throws Exception {
               ch.pipeline().addLast(
-                  new LengthFieldBasedFrameDecoder(128 * 1024 * 1024, 0, 4, 0, 4),
+                  new Netty4MessageFrameDecoder(),
                   new Handler());
             }
           });
@@ -90,7 +89,7 @@ public class SimpleBenchNetty4 {
             @Override
             protected void initChannel(final SocketChannel ch) throws Exception {
               ch.pipeline().addLast(
-                  new LengthFieldBasedFrameDecoder(128 * 1024 * 1024, 0, 4, 0, 4),
+                  new Netty4MessageFrameDecoder(),
                   new Handler());
             }
           });
