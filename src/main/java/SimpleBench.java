@@ -74,6 +74,8 @@ public class SimpleBench {
 
   static class Client {
 
+    private List<Handler> handlers = Lists.newCopyOnWriteArrayList();
+
     public Client(final InetSocketAddress address, final int connections)
         throws InterruptedException {
       final ClientSocketChannelFactory channelFactory = new NioClientSocketChannelFactory(
@@ -98,23 +100,37 @@ public class SimpleBench {
       }
     }
 
-    public volatile long p0, p1, p2, p3, p4, p5, p6, p7;
-    public volatile long q0, q1, q2, q3, q4, q5, q6, q7;
-    private long counter;
-    public volatile long r0, r1, r2, r3, r4, r5, r6, r7;
-    public volatile long s0, s1, s2, s3, s4, s5, s6, s7;
+    public long counter() {
+      long sum = 0;
+      for (final Handler handler : handlers) {
+        sum += handler.counter;
+      }
+      return sum;
+    }
 
     private class Handler extends SimpleChannelUpstreamHandler {
 
+      public volatile long p0, p1, p2, p3, p4, p5, p6, p7;
+      public volatile long q0, q1, q2, q3, q4, q5, q6, q7;
+      private long counter;
+      public volatile long r0, r1, r2, r3, r4, r5, r6, r7;
+      public volatile long s0, s1, s2, s3, s4, s5, s6, s7;
 
 
       @Override
       public void channelConnected(final ChannelHandlerContext ctx, final ChannelStateEvent e)
           throws Exception {
+        handlers.add(this);
         final Channel channel = e.getChannel();
         for (int i = 0; i < 1000; i++) {
           send(channel);
         }
+      }
+
+      @Override
+      public void channelDisconnected(final ChannelHandlerContext ctx, final ChannelStateEvent e)
+          throws Exception {
+        handlers.remove(this);
       }
 
       private void send(final Channel channel) {
@@ -177,7 +193,7 @@ public class SimpleBench {
       public ProgressMeter.Counters get() {
         long requests = 0;
         for (final Client client : clients) {
-          requests += client.counter;
+          requests += client.counter();
         }
         return new ProgressMeter.Counters(requests, 0);
       }
