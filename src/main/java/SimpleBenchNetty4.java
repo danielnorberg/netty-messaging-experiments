@@ -79,10 +79,9 @@ public class SimpleBenchNetty4 {
     public Client(final List<InetSocketAddress> addresses)
         throws InterruptedException {
 
-      final EventLoopGroup workerGroup = new NioEventLoopGroup();
       for (final InetSocketAddress address : addresses) {
         final Bootstrap b = new Bootstrap();
-        b.group(workerGroup)
+        b.group(new NioEventLoopGroup(1))
             .channel(NioSocketChannel.class)
             .option(ChannelOption.TCP_NODELAY, true)
             .option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
