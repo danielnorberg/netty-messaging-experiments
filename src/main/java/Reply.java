@@ -1,6 +1,6 @@
 import org.jboss.netty.buffer.ChannelBuffer;
 
-public class Reply {
+public class Reply implements Message {
 
   private final RequestId requestId;
   private final int statusCode;
@@ -32,12 +32,14 @@ public class Reply {
     return new Reply(requestId, statusCode, buffer.readSlice(payloadSize));
   }
 
+  @Override
   public int serializedSize() {
     return requestId.serializedSize() +
            4 + // status code
            4 + payload.readableBytes();
   }
 
+  @Override
   public void serialize(final ChannelBuffer buffer) {
     requestId.serialize(buffer);
     buffer.writeInt(statusCode);

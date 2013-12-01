@@ -2,13 +2,18 @@ import org.jboss.netty.buffer.ChannelBuffer;
 
 import static org.jboss.netty.buffer.ChannelBuffers.EMPTY_BUFFER;
 
-public class Request {
+public class Request implements Message {
 
   private final RequestId id;
   private final ChannelBuffer payload;
 
+  @Deprecated
   public Request(final ChannelBuffer payload) {
     this(RequestId.create(), payload);
+  }
+
+  public Request(final long id, final ChannelBuffer payload) {
+    this(new RequestId(id, System.currentTimeMillis()), payload);
   }
 
   public Request(final RequestId id, final ChannelBuffer payload) {
@@ -39,12 +44,14 @@ public class Request {
     return new Request(requestId, payload);
   }
 
+  @Override
   public void serialize(final ChannelBuffer buffer) {
     id.serialize(buffer);
     buffer.writeInt(payload.readableBytes());
     buffer.writeBytes(payload);
   }
 
+  @Override
   public int serializedSize() {
     return id.serializedSize() +
            4 + payload.readableBytes();

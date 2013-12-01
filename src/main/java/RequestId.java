@@ -8,6 +8,7 @@ public class RequestId {
   private final long value;
   private final long timestampMillis;
 
+  @Deprecated
   public static RequestId create() {
     final Thread thread = Thread.currentThread();
     final long id;

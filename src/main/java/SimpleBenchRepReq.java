@@ -1,11 +1,10 @@
-import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.common.collect.Lists;
 
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.bootstrap.ServerBootstrap;
-import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
@@ -22,13 +21,10 @@ import org.jboss.netty.channel.socket.nio.NioSocketChannel;
 import java.net.InetSocketAddress;
 import java.util.List;
 
-import static com.google.common.base.Charsets.UTF_8;
 import static java.lang.System.out;
 import static java.net.InetAddress.getLoopbackAddress;
 
-public class SimpleBench {
-
-  static final ChannelBuffer PAYLOAD = ChannelBuffers.copiedBuffer(Strings.repeat(".", 50), UTF_8);
+public class SimpleBenchRepReq {
 
   static class Server {
 
@@ -41,6 +37,7 @@ public class SimpleBench {
         @Override
         public ChannelPipeline getPipeline() throws Exception {
           return Channels.pipeline(new MessageFrameDecoder(),
+                                   new RequestDecoder(),
                                    new Handler());
         }
       });
@@ -50,18 +47,20 @@ public class SimpleBench {
 
     class Handler extends SimpleChannelUpstreamHandler {
 
-      private Netty3BatchWriter writer;
+      private Netty3MessageBatchWriter writer;
 
       @Override
       public void channelConnected(final ChannelHandlerContext ctx, final ChannelStateEvent e)
           throws Exception {
-        writer = new Netty3BatchWriter((NioSocketChannel) ctx.getChannel());
+        writer = new Netty3MessageBatchWriter((NioSocketChannel) ctx.getChannel());
       }
 
       @Override
       public void messageReceived(final ChannelHandlerContext ctx, final MessageEvent e)
           throws Exception {
-        writer.write(PAYLOAD.duplicate());
+        final Request request = (Request) e.getMessage();
+
+        writer.write(request.makeReply(418));
       }
 
       @Override
@@ -87,6 +86,7 @@ public class SimpleBench {
         @Override
         public ChannelPipeline getPipeline() throws Exception {
           return Channels.pipeline(new MessageFrameDecoder(),
+                                   new ReplyDecoder(),
                                    new Handler()
           );
         }
@@ -109,16 +109,19 @@ public class SimpleBench {
       public volatile long p0, p1, p2, p3, p4, p5, p6, p7;
       public volatile long q0, q1, q2, q3, q4, q5, q6, q7;
       private long counter;
+      private long requestIdCounter;
       public volatile long r0, r1, r2, r3, r4, r5, r6, r7;
       public volatile long s0, s1, s2, s3, s4, s5, s6, s7;
 
-      Netty3BatchWriter writer;
+      Netty3MessageBatchWriter writer;
+
 
       @Override
       public void channelConnected(final ChannelHandlerContext ctx, final ChannelStateEvent e)
           throws Exception {
-        writer = new Netty3BatchWriter((NioSocketChannel) ctx.getChannel());
+        writer = new Netty3MessageBatchWriter((NioSocketChannel) ctx.getChannel());
         handlers.add(this);
+        final Channel channel = e.getChannel();
         for (int i = 0; i < 10000; i++) {
           send();
         }
@@ -131,7 +134,8 @@ public class SimpleBench {
       }
 
       private void send() {
-        writer.write(PAYLOAD.duplicate());
+        writer.write(new Request(requestIdCounter, ChannelBuffers.EMPTY_BUFFER));
+        requestIdCounter++;
       }
 
       @Override
