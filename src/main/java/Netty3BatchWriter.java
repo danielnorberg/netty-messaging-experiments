@@ -1,12 +1,12 @@
 import com.google.common.collect.Lists;
 
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.channel.socket.nio.NioSocketChannel;
+
 import java.util.List;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
-import io.netty.channel.Channel;
-
-public class BatchWriter {
+public class Netty3BatchWriter {
 
   private static final int MAX_BUFFER_SIZE = 4096;
   private static final int HEADER_SIZE = 4;
@@ -14,9 +14,8 @@ public class BatchWriter {
   private volatile long p0, p1, p2, p3, p4, p5, p6, p7;
   private volatile long q0, q1, q2, q3, q4, q5, q6, q7;
 
-  private final Channel channel;
-  private final ByteBufAllocator allocator;
-  private final List<ByteBuf> queue = Lists.newArrayList();
+  private final NioSocketChannel channel;
+  private final List<ChannelBuffer> queue = Lists.newArrayList();
   private int bufferSize;
   private boolean registered;
   private final Runnable flusher = new Runnable() {
@@ -34,12 +33,11 @@ public class BatchWriter {
   /**
    * Create a new write batcher.
    */
-  public BatchWriter(final Channel channel) {
+  public Netty3BatchWriter(final NioSocketChannel channel) {
     this.channel = channel;
-    this.allocator = channel.alloc();
   }
 
-  public void write(final ByteBuf message) {
+  public void write(final ChannelBuffer message) {
     queue.add(message);
 
     // Calculate new size of outgoing message buffer
@@ -53,7 +51,7 @@ public class BatchWriter {
 
     if (!registered) {
       registered = true;
-      channel.eventLoop().execute(flusher);
+      channel.getWorker().executeInIoThread(flusher, true);
     }
   }
 
@@ -62,17 +60,16 @@ public class BatchWriter {
       return;
     }
 
-    final ByteBuf buffer = allocator.buffer(bufferSize);
+    final ChannelBuffer buffer = ChannelBuffers.buffer(bufferSize);
 
     for (int i = 0; i < queue.size(); i++) {
-      final ByteBuf message = queue.get(i);
+      final ChannelBuffer message = queue.get(i);
       final int size = message.readableBytes();
       buffer.writeInt(size);
       buffer.writeBytes(message);
-      message.release();
     }
 
-    channel.writeAndFlush(buffer);
+    channel.write(buffer);
 
     queue.clear();
     bufferSize = 0;
