@@ -22,7 +22,6 @@ import io.netty.util.ReferenceCountUtil;
 
 import static java.lang.System.out;
 import static java.net.InetAddress.getLoopbackAddress;
-import static java.util.Arrays.asList;
 
 public class SimpleBenchNetty4 {
 
@@ -76,6 +75,8 @@ public class SimpleBenchNetty4 {
 
   static class Client {
 
+    private List<Handler> handlers = Lists.newCopyOnWriteArrayList();
+
     public Client(final List<InetSocketAddress> addresses)
         throws InterruptedException {
 
@@ -98,23 +99,37 @@ public class SimpleBenchNetty4 {
       }
     }
 
-    public volatile long p0, p1, p2, p3, p4, p5, p6, p7;
-    public volatile long q0, q1, q2, q3, q4, q5, q6, q7;
-    private long counter;
-    public volatile long r0, r1, r2, r3, r4, r5, r6, r7;
-    public volatile long s0, s1, s2, s3, s4, s5, s6, s7;
+    public long counter() {
+      long sum = 0;
+      for (final Handler handler : handlers) {
+        sum += handler.counter;
+      }
+      return sum;
+    }
 
     private class Handler extends ChannelInboundHandlerAdapter {
+
+      public volatile long p0, p1, p2, p3, p4, p5, p6, p7;
+      public volatile long q0, q1, q2, q3, q4, q5, q6, q7;
+      private long counter;
+      public volatile long r0, r1, r2, r3, r4, r5, r6, r7;
+      public volatile long s0, s1, s2, s3, s4, s5, s6, s7;
 
       BatchWriter writer;
 
       @Override
       public void channelActive(final ChannelHandlerContext ctx) throws Exception {
+        handlers.add(this);
         writer = new BatchWriter(ctx.channel());
         for (int i = 0; i < 1000; i++) {
           send(ctx);
         }
         ctx.flush();
+      }
+
+      @Override
+      public void channelInactive(final ChannelHandlerContext ctx) throws Exception {
+        handlers.remove(this);
       }
 
       private void send(final ChannelHandlerContext ctx) {
@@ -162,19 +177,21 @@ public class SimpleBenchNetty4 {
 
     final List<Client> clients = Lists.newArrayList();
 
+    final List<InetSocketAddress> addresses = Lists.newArrayList();
     final InetSocketAddress address = new InetSocketAddress(getLoopbackAddress(), port);
     final Server server = new Server(address);
     for (int i = 0; i < connections; i++) {
-      final Client client = new Client(asList(address));
-      clients.add(client);
+      addresses.add(address);
     }
+    final Client client = new Client(addresses);
+    clients.add(client);
 
     final ProgressMeter meter = new ProgressMeter(new Supplier<ProgressMeter.Counters>() {
       @Override
       public ProgressMeter.Counters get() {
         long requests = 0;
         for (final Client client : clients) {
-          requests += client.counter;
+          requests += client.counter();
         }
         return new ProgressMeter.Counters(requests, 0);
       }
