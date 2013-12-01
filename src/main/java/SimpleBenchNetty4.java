@@ -22,6 +22,7 @@ import io.netty.util.ReferenceCountUtil;
 
 import static java.lang.System.out;
 import static java.net.InetAddress.getLoopbackAddress;
+import static java.util.Arrays.asList;
 
 public class SimpleBenchNetty4 {
 
@@ -166,10 +167,9 @@ public class SimpleBenchNetty4 {
       final InetSocketAddress address = new InetSocketAddress(getLoopbackAddress(), port + i);
       final Server server = new Server(address);
       addresses.add(address);
+      final Client client = new Client(asList(address));
+      clients.add(client);
     }
-
-    final Client client = new Client(addresses);
-    clients.add(client);
 
     final ProgressMeter meter = new ProgressMeter(new Supplier<ProgressMeter.Counters>() {
       @Override
