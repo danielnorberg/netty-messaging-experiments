@@ -2,7 +2,6 @@ import com.google.common.collect.Lists;
 
 import java.util.Deque;
 import java.util.List;
-import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
@@ -20,7 +19,6 @@ public class BatchWriter {
   private static final AtomicIntegerFieldUpdater<BatchWriter> bufferSizeUpdater =
       AtomicIntegerFieldUpdater.newUpdater(BatchWriter.class, "bufferSize");
   private static final int HEADER_SIZE = 4;
-
 
   private final Channel channel;
   private final ByteBufAllocator allocator;
