@@ -2,9 +2,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 
-/**
- * Copyright (C) 2013 Spotify AB
- */
+import static io.netty.buffer.Unpooled.EMPTY_BUFFER;
 
 public class Netty4MessageFrameDecoder extends LengthFieldBasedFrameDecoder {
 
@@ -15,6 +13,11 @@ public class Netty4MessageFrameDecoder extends LengthFieldBasedFrameDecoder {
   @Override
   protected ByteBuf extractFrame(final ChannelHandlerContext ctx, final ByteBuf buffer,
                                  final int index, final int length) {
+    if (length == 0) {
+      return EMPTY_BUFFER;
+    }
+
+    // Releasing the slice will release the parent buffer
     buffer.retain();
     return buffer.slice(index, length);
   }

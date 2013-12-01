@@ -70,22 +70,6 @@ public class SimpleBenchNetty4 {
           ReferenceCountUtil.release(msg);
         }
       }
-
-      @Override
-      public void channelReadComplete(final ChannelHandlerContext ctx) throws Exception {
-        final boolean writable = ctx.channel().isWritable();
-        if (writable) {
-          writer.flush();
-        }
-      }
-
-      @Override
-      public void channelWritabilityChanged(final ChannelHandlerContext ctx) throws Exception {
-        final boolean writable = ctx.channel().isWritable();
-        if (writable) {
-          writer.flush();
-        }
-      }
     }
   }
 
@@ -134,19 +118,10 @@ public class SimpleBenchNetty4 {
 
       @Override
       public void channelActive(final ChannelHandlerContext ctx) throws Exception {
-        handlers.add(this);
         writer = new BatchWriter(ctx.channel());
+        handlers.add(this);
         for (int i = 0; i < 1000; i++) {
-          send();
-        }
-        writer.flush();
-      }
-
-      @Override
-      public void channelWritabilityChanged(final ChannelHandlerContext ctx) throws Exception {
-        final boolean writable = ctx.channel().isWritable();
-        if (writable) {
-          writer.flush();
+          writer.write(duplicate(PAYLOAD));
         }
       }
 
@@ -155,24 +130,13 @@ public class SimpleBenchNetty4 {
         handlers.remove(this);
       }
 
-      private void send() {
-        writer.write(duplicate(PAYLOAD));
-      }
-
       @Override
       public void channelRead(final ChannelHandlerContext ctx, final Object msg) throws Exception {
         try {
           counter++;
-          send();
+          writer.write(duplicate(PAYLOAD));
         } finally {
           ReferenceCountUtil.release(msg);
-        }
-      }
-
-      @Override
-      public void channelReadComplete(final ChannelHandlerContext ctx) throws Exception {
-        if (ctx.channel().isWritable()) {
-          writer.flush();
         }
       }
     }

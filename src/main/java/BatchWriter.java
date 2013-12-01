@@ -9,18 +9,27 @@ import io.netty.channel.Channel;
 public class BatchWriter {
 
   private static final int MAX_BUFFER_SIZE = 4096;
-
   private static final int HEADER_SIZE = 4;
+
+  private volatile long p0, p1, p2, p3, p4, p5, p6, p7;
+  private volatile long q0, q1, q2, q3, q4, q5, q6, q7;
 
   private final Channel channel;
   private final ByteBufAllocator allocator;
-
-  public volatile long p0, p1, p2, p3, p4, p5, p6, p7;
-  public volatile long q0, q1, q2, q3, q4, q5, q6, q7;
   private final List<ByteBuf> queue = Lists.newArrayList();
   private int bufferSize;
-  public volatile long r0, r1, r2, r3, r4, r5, r6, r7;
-  public volatile long s0, s1, s2, s3, s4, s5, s6, s7;
+  private boolean registered;
+  private final Runnable flusher = new Runnable() {
+    @Override
+    public void run() {
+      registered = false;
+      flush();
+    }
+  };
+
+  private volatile long r0, r1, r2, r3, r4, r5, r6, r7;
+  private volatile long s0, s1, s2, s3, s4, s5, s6, s7;
+
 
   /**
    * Create a new write batcher.
@@ -40,6 +49,11 @@ public class BatchWriter {
     // Flush if the buffer has reached its threshold size
     if (bufferSize > MAX_BUFFER_SIZE) {
       flush();
+    }
+
+    if (!registered) {
+      registered = true;
+      channel.eventLoop().execute(flusher);
     }
   }
 
