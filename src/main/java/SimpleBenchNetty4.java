@@ -1,4 +1,3 @@
-import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.common.collect.Lists;
 
@@ -21,16 +20,16 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.ReferenceCountUtil;
 
-import static com.google.common.base.Charsets.UTF_8;
 import static java.lang.System.out;
 import static java.net.InetAddress.getLoopbackAddress;
 
 public class SimpleBenchNetty4 {
 
-  static final ByteBuf PAYLOAD =
-      Unpooled.unreleasableBuffer(
-          Unpooled.unmodifiableBuffer(
-              Unpooled.copiedBuffer(Strings.repeat(".", 50), UTF_8)));
+  static final ByteBuf PAYLOAD = Unpooled.wrappedBuffer(new byte[32]);
+
+  private static ByteBuf duplicate(final ByteBuf buffer) {
+    return new UnreleasableReadOnlyByteBuf(buffer);
+  }
 
   static class Server {
 
@@ -66,7 +65,7 @@ public class SimpleBenchNetty4 {
       @Override
       public void channelRead(final ChannelHandlerContext ctx, final Object msg) throws Exception {
         try {
-          writer.write(PAYLOAD.duplicate());
+          writer.write(duplicate(PAYLOAD));
         } finally {
           ReferenceCountUtil.release(msg);
         }
@@ -119,7 +118,7 @@ public class SimpleBenchNetty4 {
       }
 
       private void send(final ChannelHandlerContext ctx) {
-        writer.write(PAYLOAD.duplicate());
+        writer.write(duplicate(PAYLOAD));
       }
 
       @Override
