@@ -79,21 +79,20 @@ public class SimpleBenchNetty4 {
         throws InterruptedException {
 
       final EventLoopGroup workerGroup = new NioEventLoopGroup();
-      final Bootstrap b = new Bootstrap();
-      b.group(workerGroup)
-          .channel(NioSocketChannel.class)
-          .option(ChannelOption.TCP_NODELAY, true)
-          .option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
-          .handler(new ChannelInitializer<SocketChannel>() {
-            @Override
-            protected void initChannel(final SocketChannel ch) throws Exception {
-              ch.pipeline().addLast(
-                  new Netty4MessageFrameDecoder(),
-                  new Handler());
-            }
-          });
-
       for (int i = 0; i < connections; i++) {
+        final Bootstrap b = new Bootstrap();
+        b.group(workerGroup)
+            .channel(NioSocketChannel.class)
+            .option(ChannelOption.TCP_NODELAY, true)
+            .option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
+            .handler(new ChannelInitializer<SocketChannel>() {
+              @Override
+              protected void initChannel(final SocketChannel ch) throws Exception {
+                ch.pipeline().addLast(
+                    new Netty4MessageFrameDecoder(),
+                    new Handler());
+              }
+            });
         b.connect(address).sync();
       }
     }
