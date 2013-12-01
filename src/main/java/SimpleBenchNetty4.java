@@ -75,11 +75,11 @@ public class SimpleBenchNetty4 {
 
   static class Client {
 
-    public Client(final InetSocketAddress address, final int connections)
+    public Client(final List<InetSocketAddress> addresses)
         throws InterruptedException {
 
       final EventLoopGroup workerGroup = new NioEventLoopGroup();
-      for (int i = 0; i < connections; i++) {
+      for (final InetSocketAddress address : addresses) {
         final Bootstrap b = new Bootstrap();
         b.group(workerGroup)
             .channel(NioSocketChannel.class)
@@ -161,12 +161,15 @@ public class SimpleBenchNetty4 {
 
     final List<Client> clients = Lists.newArrayList();
 
-    for (int i = 0; i < instances; i++) {
+    final List<InetSocketAddress> addresses = Lists.newArrayList();
+    for (int i = 0; i < connections; i++) {
       final InetSocketAddress address = new InetSocketAddress(getLoopbackAddress(), port + i);
       final Server server = new Server(address);
-      final Client client = new Client(address, connections);
-      clients.add(client);
+      addresses.add(address);
     }
+
+    final Client client = new Client(addresses);
+    clients.add(client);
 
     final ProgressMeter meter = new ProgressMeter(new Supplier<ProgressMeter.Counters>() {
       @Override
