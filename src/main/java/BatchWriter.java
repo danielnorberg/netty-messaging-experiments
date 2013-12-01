@@ -30,7 +30,6 @@ public class BatchWriter {
   private volatile long lastFlushNanos;
   private volatile long lastWriteNanos;
   private volatile int bufferSize;
-  private volatile int bufferCount;
   private final Deque<ByteBuf> queue = new ConcurrentLinkedDeque<>();
   public volatile long r0, r1, r2, r3, r4, r5, r6, r7;
   public volatile long s0, s1, s2, s3, s4, s5, s6, s7;
