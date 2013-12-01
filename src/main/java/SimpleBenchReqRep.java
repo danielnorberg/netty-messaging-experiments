@@ -49,6 +49,8 @@ public class SimpleBenchReqRep {
 
       private Netty3MessageBatchWriter writer;
 
+      private final Reply reply = new Reply(new RequestId(0, 0), 418, ChannelBuffers.EMPTY_BUFFER);
+
       @Override
       public void channelConnected(final ChannelHandlerContext ctx, final ChannelStateEvent e)
           throws Exception {
@@ -60,7 +62,7 @@ public class SimpleBenchReqRep {
           throws Exception {
         final Request request = (Request) e.getMessage();
 
-        writer.write(request.makeReply(418));
+        writer.write(reply);
       }
 
       @Override
@@ -115,7 +117,7 @@ public class SimpleBenchReqRep {
 
       Netty3MessageBatchWriter writer;
 
-      private final Request request = new Request(requestIdCounter, ChannelBuffers.EMPTY_BUFFER);
+      private final Request request = new Request(new RequestId(0, 0), ChannelBuffers.EMPTY_BUFFER);
 
       @Override
       public void channelConnected(final ChannelHandlerContext ctx, final ChannelStateEvent e)
