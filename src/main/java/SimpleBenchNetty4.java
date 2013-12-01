@@ -162,11 +162,9 @@ public class SimpleBenchNetty4 {
 
     final List<Client> clients = Lists.newArrayList();
 
-    final List<InetSocketAddress> addresses = Lists.newArrayList();
+    final InetSocketAddress address = new InetSocketAddress(getLoopbackAddress(), port);
+    final Server server = new Server(address);
     for (int i = 0; i < connections; i++) {
-      final InetSocketAddress address = new InetSocketAddress(getLoopbackAddress(), port + i);
-      final Server server = new Server(address);
-      addresses.add(address);
       final Client client = new Client(asList(address));
       clients.add(client);
     }
