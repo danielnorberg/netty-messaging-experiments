@@ -306,13 +306,11 @@ public class UnreleasableReadOnlyByteBuf extends AbstractByteBuf {
 
   @Override
   public final ByteBuf retain() {
-    unwrap().retain();
     return this;
   }
 
   @Override
   public final ByteBuf retain(int increment) {
-    unwrap().retain(increment);
     return this;
   }
 
