@@ -3,6 +3,7 @@ import com.google.common.collect.Lists;
 
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.bootstrap.ServerBootstrap;
+import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -47,14 +48,21 @@ public class SimpleBenchReqRep {
 
     class Handler extends SimpleChannelUpstreamHandler {
 
-      private Netty3MessageBatchWriter writer;
+      private Netty3BatchWriter writer;
 
       private final Reply reply = new Reply(new RequestId(0, 0), 418, ChannelBuffers.EMPTY_BUFFER);
+      private final ChannelBuffer serializedReply;
+
+      Handler() {
+        final ChannelBuffer serializedReply = ChannelBuffers.buffer(reply.serializedSize());
+        reply.serialize(serializedReply);
+        this.serializedReply = serializedReply;
+      }
 
       @Override
       public void channelConnected(final ChannelHandlerContext ctx, final ChannelStateEvent e)
           throws Exception {
-        writer = new Netty3MessageBatchWriter((NioSocketChannel) ctx.getChannel());
+        writer = new Netty3BatchWriter((NioSocketChannel) ctx.getChannel());
       }
 
       @Override
@@ -62,7 +70,7 @@ public class SimpleBenchReqRep {
           throws Exception {
         final Request request = (Request) e.getMessage();
 
-        writer.write(reply);
+        writer.write(serializedReply.duplicate());
       }
 
       @Override
@@ -112,17 +120,24 @@ public class SimpleBenchReqRep {
       public volatile long q0, q1, q2, q3, q4, q5, q6, q7;
       private long counter;
       private long requestIdCounter;
+      private final ChannelBuffer serializedRequest;
       public volatile long r0, r1, r2, r3, r4, r5, r6, r7;
       public volatile long s0, s1, s2, s3, s4, s5, s6, s7;
 
-      Netty3MessageBatchWriter writer;
+      Netty3BatchWriter writer;
 
       private final Request request = new Request(new RequestId(0, 0), ChannelBuffers.EMPTY_BUFFER);
+
+      private Handler() {
+        final ChannelBuffer serializedRequest = ChannelBuffers.buffer(request.serializedSize());
+        request.serialize(serializedRequest);
+        this.serializedRequest = serializedRequest;
+      }
 
       @Override
       public void channelConnected(final ChannelHandlerContext ctx, final ChannelStateEvent e)
           throws Exception {
-        writer = new Netty3MessageBatchWriter((NioSocketChannel) ctx.getChannel());
+        writer = new Netty3BatchWriter((NioSocketChannel) ctx.getChannel());
         handlers.add(this);
         final Channel channel = e.getChannel();
         for (int i = 0; i < 10000; i++) {
@@ -137,7 +152,7 @@ public class SimpleBenchReqRep {
       }
 
       private void send() {
-        writer.write(request);
+        writer.write(serializedRequest.duplicate());
         requestIdCounter++;
       }
 
