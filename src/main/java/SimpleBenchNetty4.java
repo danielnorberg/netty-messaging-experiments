@@ -176,8 +176,8 @@ public class SimpleBenchNetty4 {
 
     final List<Client> clients = Lists.newArrayList();
 
-    for (int j = 0; j < instances; j++) {
-      final InetSocketAddress address = new InetSocketAddress(getLoopbackAddress(), port);
+    for (int i = 0; i < instances; i++) {
+      final InetSocketAddress address = new InetSocketAddress(getLoopbackAddress(), port + i);
       final Server server = new Server(address);
       final Client client = new Client(address, connections);
       clients.add(client);
