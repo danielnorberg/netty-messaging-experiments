@@ -115,6 +115,7 @@ public class SimpleBenchReqRep {
 
       Netty3MessageBatchWriter writer;
 
+      private final Request request = new Request(requestIdCounter, ChannelBuffers.EMPTY_BUFFER);
 
       @Override
       public void channelConnected(final ChannelHandlerContext ctx, final ChannelStateEvent e)
@@ -134,7 +135,7 @@ public class SimpleBenchReqRep {
       }
 
       private void send() {
-        writer.write(new Request(requestIdCounter, ChannelBuffers.EMPTY_BUFFER));
+        writer.write(request);
         requestIdCounter++;
       }
 
