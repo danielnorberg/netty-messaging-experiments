@@ -106,6 +106,8 @@ public class SimpleBench {
 
     private class Handler extends SimpleChannelUpstreamHandler {
 
+
+
       @Override
       public void channelConnected(final ChannelHandlerContext ctx, final ChannelStateEvent e)
           throws Exception {
