@@ -316,7 +316,7 @@ public class UnreleasableReadOnlyByteBuf extends AbstractByteBuf {
 
   @Override
   public int refCnt() {
-    return buffer.refCnt();
+    return 1;
   }
 
   @Override
@@ -328,4 +328,6 @@ public class UnreleasableReadOnlyByteBuf extends AbstractByteBuf {
   public boolean release(int decrement) {
     return false;
   }
+
+
 }
