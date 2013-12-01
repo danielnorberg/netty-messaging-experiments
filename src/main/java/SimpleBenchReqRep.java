@@ -24,7 +24,7 @@ import java.util.List;
 import static java.lang.System.out;
 import static java.net.InetAddress.getLoopbackAddress;
 
-public class SimpleBenchRepReq {
+public class SimpleBenchReqRep {
 
   static class Server {
 
