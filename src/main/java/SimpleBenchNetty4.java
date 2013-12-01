@@ -56,14 +56,19 @@ public class SimpleBenchNetty4 {
     class Handler extends ChannelInboundHandlerAdapter {
 
       BatchWriter writer;
+      Thread thread;
 
       @Override
       public void channelActive(final ChannelHandlerContext ctx) throws Exception {
+        thread = Thread.currentThread();
         writer = new BatchWriter(ctx.channel());
       }
 
       @Override
       public void channelRead(final ChannelHandlerContext ctx, final Object msg) throws Exception {
+        if (thread != Thread.currentThread()) {
+          throw new IllegalStateException();
+        }
         try {
           writer.write(duplicate(PAYLOAD));
         } finally {
@@ -106,9 +111,11 @@ public class SimpleBenchNetty4 {
     private class Handler extends ChannelInboundHandlerAdapter {
 
       BatchWriter writer;
+      Thread thread;
 
       @Override
       public void channelActive(final ChannelHandlerContext ctx) throws Exception {
+        thread = Thread.currentThread();
         writer = new BatchWriter(ctx.channel());
         for (int i = 0; i < 1000; i++) {
           send(ctx);
@@ -122,6 +129,9 @@ public class SimpleBenchNetty4 {
 
       @Override
       public void channelRead(final ChannelHandlerContext ctx, final Object msg) throws Exception {
+        if (thread != Thread.currentThread()) {
+          throw new IllegalStateException();
+        }
         try {
           counter++;
           send(ctx);
