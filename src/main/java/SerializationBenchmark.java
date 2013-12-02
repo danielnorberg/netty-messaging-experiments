@@ -8,18 +8,28 @@ import java.util.concurrent.Executor;
 
 import jsr166.concurrent.Executors;
 
+import static java.lang.System.out;
+
 /**
  * Copyright (C) 2013 Spotify AB
  */
 
 public class SerializationBenchmark  {
 
-  private static final int CPUS = Runtime.getRuntime().availableProcessors();
-
   public static void main(final String... args) throws InterruptedException {
+
+    final int threads;
+    if (args.length > 0) {
+      threads = Integer.parseInt(args[0]);
+    } else {
+      threads = 1;
+    }
+
+    out.printf("threads: %s%n", threads);
+
     final Executor executor = Executors.newCachedThreadPool();
     final List<Worker> workers = Lists.newArrayList();
-    for (int i = 0; i < CPUS; i++) {
+    for (int i = 0; i < threads; i++) {
       final Worker worker = new Worker();
       workers.add(worker);
       executor.execute(worker);
