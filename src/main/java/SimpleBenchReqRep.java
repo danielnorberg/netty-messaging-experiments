@@ -138,9 +138,8 @@ public class SimpleBenchReqRep {
         handlers.remove(this);
       }
 
-      final Request request = new Request(requestIdCounter, buffer(0));
-
       private void send() {
+        final Request request = new Request(requestIdCounter, buffer(0));
         writer.write(request);
         requestIdCounter++;
       }
