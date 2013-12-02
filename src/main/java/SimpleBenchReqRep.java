@@ -3,8 +3,8 @@ import com.google.common.collect.Lists;
 
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.bootstrap.ServerBootstrap;
-import org.jboss.netty.buffer.BigEndianHeapChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
@@ -26,9 +26,14 @@ import static java.net.InetAddress.getLoopbackAddress;
 
 public class SimpleBenchReqRep {
 
+  public static final ChannelBuffer EMPTY_BUFFER = new EmptyBuffer();
+
   private static ChannelBuffer buffer(final int size) {
-    // Avoid EMPTY_BUFFER contention
-    return new BigEndianHeapChannelBuffer(size);
+    if (size == 0) {
+      return EMPTY_BUFFER;
+    } else {
+      return ChannelBuffers.buffer(size);
+    }
   }
 
   static class Server {
