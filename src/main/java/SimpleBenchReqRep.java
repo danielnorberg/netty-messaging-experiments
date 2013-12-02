@@ -124,7 +124,7 @@ public class SimpleBenchReqRep {
           throws Exception {
         writer = new Netty3MessageBatchWriter((NioSocketChannel) ctx.getChannel());
         handlers.add(this);
-        for (int i = 0; i < 10000; i++) {
+        for (int i = 0; i < 1000; i++) {
           send();
         }
       }
