@@ -136,7 +136,7 @@ public class SimpleBenchReqRep {
       }
 
       private void send() {
-        final Request request = new Request(requestIdCounter++, buffer(0));
+        final Request request = new Request(requestIdCounter, buffer(0));
         writer.write(request);
         requestIdCounter++;
       }
