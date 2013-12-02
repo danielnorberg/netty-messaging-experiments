@@ -1,7 +1,6 @@
 import com.google.common.collect.Lists;
 
 import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
 
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -78,7 +77,7 @@ public class SerializationBenchmark  {
     private volatile long s0, s1, s2, s3, s4, s5, s6, s7;
 
     private Worker() {
-      request = new Request(new RequestId(0, 0), ChannelBuffers.EMPTY_BUFFER);
+      request = new Request(new RequestId(0, 0), buffer(0));
     }
 
     @Override
