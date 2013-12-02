@@ -58,6 +58,10 @@ public class SerializationBenchmark  {
     }
   }
 
+  private static ChannelBuffer buffer(final int size) {
+    return new PaddedBigEndianHeapChannelBuffer(size);
+  }
+
   private static class Worker implements Runnable {
 
     private static final int N = 1000;
@@ -66,7 +70,6 @@ public class SerializationBenchmark  {
     private volatile long q0, q1, q2, q3, q4, q5, q6, q7;
 
     private final Request request;
-//    private final ChannelBuffer buffer;
     private volatile long bytes;
     private volatile long messages;
     private volatile long parsedBytes;
@@ -86,7 +89,7 @@ public class SerializationBenchmark  {
     }
 
     private void doRun() {
-      final ChannelBuffer buffer = ChannelBuffers.buffer(N * request.serializedSize());
+      final ChannelBuffer buffer = buffer(N * request.serializedSize());
       buffer.resetWriterIndex();
       long parsedBytes = 0;
       for (int i = 0; i < N; i++) {
