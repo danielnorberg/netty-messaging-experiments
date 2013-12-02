@@ -1,7 +1,5 @@
 import org.jboss.netty.buffer.ChannelBuffer;
 
-import static org.jboss.netty.buffer.ChannelBuffers.EMPTY_BUFFER;
-
 public class Request implements Message {
 
   private final RequestId id;
@@ -22,7 +20,7 @@ public class Request implements Message {
   }
 
   public Reply makeReply(final int statusCode) {
-    return makeReply(statusCode, EMPTY_BUFFER);
+    return makeReply(statusCode, EmptyBuffer.EMPTY_BUFFER);
   }
 
   public Reply makeReply(final int statusCode, final ChannelBuffer payload) {
