@@ -16,6 +16,8 @@ public class EmptyBuffer extends BigEndianHeapChannelBuffer {
 
   private static final byte[] BUFFER = {};
 
+  public static final ChannelBuffer EMPTY_BUFFER = new EmptyBuffer();
+
   public EmptyBuffer() {
     super(BUFFER);
   }

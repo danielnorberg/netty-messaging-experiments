@@ -26,11 +26,9 @@ import static java.net.InetAddress.getLoopbackAddress;
 
 public class SimpleBenchReqRep {
 
-  public static final ChannelBuffer EMPTY_BUFFER = new EmptyBuffer();
-
   private static ChannelBuffer buffer(final int size) {
     if (size == 0) {
-      return EMPTY_BUFFER;
+      return EmptyBuffer.EMPTY_BUFFER;
     } else {
       return ChannelBuffers.buffer(size);
     }
