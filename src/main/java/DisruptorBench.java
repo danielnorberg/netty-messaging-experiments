@@ -9,9 +9,9 @@ import com.lmax.disruptor.PhasedBackoffWaitStrategy;
 import com.lmax.disruptor.RingBuffer;
 import com.lmax.disruptor.Sequence;
 import com.lmax.disruptor.SequenceBarrier;
-import com.lmax.disruptor.Sequencer;
 import com.lmax.disruptor.TimeoutException;
 import com.lmax.disruptor.WaitStrategy;
+import com.lmax.disruptor.YieldingWaitStrategy;
 import com.lmax.disruptor.util.PaddedLong;
 
 import org.jboss.netty.buffer.ChannelBuffer;
@@ -113,7 +113,7 @@ public class DisruptorBench {
     private final RingBuffer<RequestEvent> requests;
     private final RingBuffer<ReplyEvent> replies;
     private final SequenceBarrier barrier;
-    private final Sequence sequence = new Sequence(Sequencer.INITIAL_CURSOR_VALUE);
+    private final Sequence sequence = new Sequence();
 
     Server(final RingBuffer<RequestEvent> requests,
            final RingBuffer<ReplyEvent> replies) {
@@ -141,28 +141,28 @@ public class DisruptorBench {
 
     private void process() throws InterruptedException, TimeoutException, AlertException {
 
-      final Request request;
-      final long clientId;
+      final long last = sequence.get();
+      final long next = last + 1;
+      final long seq = barrier.waitFor(next);
 
-      // Receive request
-      {
-        long seq = sequence.get() + 1;
-        barrier.waitFor(seq);
-        final RequestEvent requestEvent = requests.get(seq);
-        request = requestEvent.getRequest();
-        clientId = requestEvent.getClientId();
-        sequence.set(seq);
-      }
+      final int batch = (int) (seq - last);
 
-      // Send reply
-      {
+      final long replyLast = replies.getCursor();
+      final long replyNext = replyLast + 1;
+      final long replySeq = replies.next(batch);
+
+      for (long i = 0; i < batch; i++) {
+        final RequestEvent requestEvent = requests.get(next + i);
+        final Request request = requestEvent.getRequest();
+        final long clientId = requestEvent.getClientId();
         final Reply reply = request.makeReply(418);
-        final long seq = replies.next();
-        final ReplyEvent replyEvent = replies.get(seq);
+        final ReplyEvent replyEvent = replies.get(replyNext + i);
         replyEvent.setClientId(clientId);
         replyEvent.setReply(reply);
-        replies.publish(seq);
       }
+
+      sequence.set(seq);
+      replies.publish(replySeq);
     }
   }
 
@@ -173,7 +173,12 @@ public class DisruptorBench {
     private final long id;
     private final RingBuffer<RequestEvent> requests;
     private final RingBuffer<ReplyEvent> replies;
-    private PaddedLong requestIdCounter = new PaddedLong();
+
+    public volatile long q1, q2, q3, q4, q5, q6, q7 = 7L;
+    public volatile long p1, p2, p3, p4, p5, p6, p7 = 7L;
+    private long requestIdCounter = 0;
+    public volatile long r1, r2, r3, r4, r5, r6, r7 = 7L;
+    public volatile long s1, s2, s3, s4, s5, s6, s7 = 7L;
 
     private final SequenceBarrier barrier;
     private final Sequence sequence = new Sequence();
@@ -190,9 +195,12 @@ public class DisruptorBench {
 
     @Override
     protected void startUp() throws Exception {
-      for (int i = 0; i < CONCURRENCY; i++) {
-        send();
+      final long hi = requests.next(CONCURRENCY);
+      final long lo = hi - (CONCURRENCY - 1);
+      for (long seq = lo; seq <= hi; seq++) {
+        send(seq);
       }
+      requests.publish(lo, hi);
     }
 
     @Override
@@ -209,22 +217,25 @@ public class DisruptorBench {
     }
 
     private void process() throws InterruptedException, TimeoutException, AlertException {
-      long seq = sequence.get() + 1;
-      barrier.waitFor(seq);
-      final ReplyEvent replyEvent = replies.get(seq);
-      send();
-      sequence.set(seq);
+      final long last = sequence.get();
+      final long next = last + 1;
+      final long replySeq = barrier.waitFor(next);
+      final int batch = (int) (replySeq - last);
+      final long requestNext = requests.getCursor() + 1;
+      final long requestSeq = requests.next(batch);
+      for (long i = 0; i < batch; i++) {
+        final ReplyEvent replyEvent = replies.get(next + i);
+        send(requestNext + i);
+      }
+      sequence.set(replySeq);
+      requests.publish(requestSeq);
     }
 
-    private void send() {
+    private void send(final long seq) {
       // TODO (dano): make it possible to interrupt sequence()
-      final long seq = requests.next();
       final RequestEvent event = requests.get(seq);
       event.setClientId(id);
-      final long requestId = requestIdCounter.get();
-      requestIdCounter.set(requestId + 1);
-      event.setRequest(new Request(requestId, EMPTY_BUFFER));
-      requests.publish(seq);
+      event.setRequest(new Request(requestIdCounter++, EMPTY_BUFFER));
     }
   }
 
@@ -252,7 +263,7 @@ public class DisruptorBench {
     final ProgressMeter meter = new ProgressMeter(new Supplier<ProgressMeter.Counters>() {
       @Override
       public ProgressMeter.Counters get() {
-        return new ProgressMeter.Counters(client.requestIdCounter.get(), 0);
+        return new ProgressMeter.Counters(client.requestIdCounter, 0);
       }
     });
 
@@ -265,41 +276,37 @@ public class DisruptorBench {
 
       final RingBuffer<E> buffer;
 
-//      public volatile long q1, q2, q3, q4, q5, q6, q7 = 7L;
-//      public volatile long p1, p2, p3, p4, p5, p6, p7 = 7L;
-      private final PaddedLong prev = new PaddedLong(-1);
-      private final PaddedLong sequence = new PaddedLong(-1);
-//      public volatile long r1, r2, r3, r4, r5, r6, r7 = 7L;
-//      public volatile long s1, s2, s3, s4, s5, s6, s7 = 7L;
+      public volatile long q1, q2, q3, q4, q5, q6, q7 = 7L;
+      public volatile long p1, p2, p3, p4, p5, p6, p7 = 7L;
+      private long prev = -1;
+      private long sequence = -1;
+      public volatile long r1, r2, r3, r4, r5, r6, r7 = 7L;
+      public volatile long s1, s2, s3, s4, s5, s6, s7 = 7L;
 
       EventQueue(final RingBuffer<E> buffer) {
         this.buffer = buffer;
       }
 
       public void publish() {
-        if (sequence.get() == prev.get()) {
+        if (sequence == prev) {
           return;
         }
 
-        buffer.publish(sequence.get());
-        prev.set(sequence.get());
-      }
-
-      public void maybePublish() {
-        if (sequence.get() - prev.get() > 100) {
-          publish();
-        }
+        buffer.publish(sequence);
+        prev = sequence;
       }
     }
 
-    public static final PhasedBackoffWaitStrategy WAIT_STRATEGY =
-        PhasedBackoffWaitStrategy.withLock(1, 10, TimeUnit.MILLISECONDS);
+    public static final WaitStrategy WAIT_STRATEGY = new YieldingWaitStrategy();
+//        PhasedBackoffWaitStrategy.withLock(1, 10, TimeUnit.MILLISECONDS);
     private final Semaphore semaphore = new Semaphore(0);
     private final List<AbstractEventHandler> handlers = Lists.newArrayList();
     private final List<EventQueue<RequestEvent>> serverRequestQueues = Lists.newArrayList();
 
     private final PaddedLong serverIndex = new PaddedLong();
-    private final Map<Long, EventQueue<ReplyEvent>> clientReplyQueues = Maps.newHashMap();
+//    private final Map<Long, EventQueue<ReplyEvent>> clientReplyQueues = Maps.newHashMap();
+    // TODO (dano): use a LongToObject map
+    private final List<EventQueue<ReplyEvent>> clientReplyQueues = Lists.newArrayList();
 
     @Override
     protected void run() throws Exception {
@@ -309,8 +316,10 @@ public class DisruptorBench {
         for (AbstractEventHandler handler : handlers) {
           handler.process();
         }
-        for (EventQueue<?> queue : clientReplyQueues.values()) {
-          queue.publish();
+        for (EventQueue<?> queue : clientReplyQueues) {
+          if (queue != null) {
+            queue.publish();
+          }
         }
         for (EventQueue<?> queue : serverRequestQueues) {
           queue.publish();
@@ -340,7 +349,10 @@ public class DisruptorBench {
     public RingBuffer<ReplyEvent> clientReplyQueue(final long clientId) {
       final RingBuffer<ReplyEvent> queue = createSingleProducer(ReplyEvent.FACTORY, BUFFER_SIZE,
                                                                 WAIT_STRATEGY);
-      clientReplyQueues.put(clientId, new EventQueue<>(queue));
+      while (clientReplyQueues.size() <= clientId) {
+        clientReplyQueues.add(null);
+      }
+      clientReplyQueues.set((int) clientId, new EventQueue<>(queue));
       return queue;
     }
 
@@ -413,13 +425,12 @@ public class DisruptorBench {
         final int index = (int) (i % serverRequestQueues.size());
         final EventQueue<RequestEvent> queue = serverRequestQueues.get(index);
         // TODO (dano): use tryNext
+        // TODO (dano): batching
         final long seq = queue.buffer.next();
-        queue.sequence.set(seq);
+        queue.sequence = seq;
         final RequestEvent serverEvent = queue.buffer.get(seq);
         serverEvent.setClientId(event.getClientId());
         serverEvent.setRequest(event.getRequest());
-//        queue.maybePublish();
-//        queue.buffer.publish(seq);
       }
     }
 
@@ -431,15 +442,14 @@ public class DisruptorBench {
 
       @Override
       protected void handle(final ReplyEvent event) {
-        final EventQueue<ReplyEvent> queue = clientReplyQueues.get(event.getClientId());
+        final EventQueue<ReplyEvent> queue = clientReplyQueues.get((int) event.getClientId());
         // TODO (dano): use tryNext
+        // TODO (dano): batching
         final long seq = queue.buffer.next();
-        queue.sequence.set(seq);
+        queue.sequence = seq;
         final ReplyEvent clientReplyEvent = queue.buffer.get(seq);
         clientReplyEvent.setClientId(event.getClientId());
         clientReplyEvent.setReply(event.getReply());
-//        queue.maybePublish();
-//        queue.buffer.publish(seq);
       }
     }
   }
