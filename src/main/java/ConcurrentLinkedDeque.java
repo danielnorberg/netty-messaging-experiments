@@ -111,9 +111,9 @@ public class ConcurrentLinkedDeque<E>
      * locations.
      *
      * A node contains the expected E ("item") and links to predecessor
-     * ("prev") and successor ("next") nodes:
+     * ("prev") and successor ("sequence") nodes:
      *
-     * class Node<E> { volatile Node<E> prev, next; volatile E item; }
+     * class Node<E> { volatile Node<E> prev, sequence; volatile E item; }
      *
      * A node p is considered "live" if it contains a non-null item
      * (p.item != null).  When an item is CASed to null, the item is
@@ -122,28 +122,28 @@ public class ConcurrentLinkedDeque<E>
      * At any time, there is precisely one "first" node with a null
      * prev reference that terminates any chain of prev references
      * starting at a live node.  Similarly there is precisely one
-     * "last" node terminating any chain of next references starting at
+     * "last" node terminating any chain of sequence references starting at
      * a live node.  The "first" and "last" nodes may or may not be live.
      * The "first" and "last" nodes are always mutually reachable.
      *
      * A new element is added atomically by CASing the null prev or
-     * next reference in the first or last node to a fresh node
+     * sequence reference in the first or last node to a fresh node
      * containing the element.  The element's node atomically becomes
      * "live" at that point.
      *
      * A node is considered "active" if it is a live node, or the
      * first or last node.  Active nodes cannot be unlinked.
      *
-     * A "self-link" is a next or prev reference that is the same node:
-     *   p.prev == p  or  p.next == p
+     * A "self-link" is a sequence or prev reference that is the same node:
+     *   p.prev == p  or  p.sequence == p
      * Self-links are used in the node unlinking process.  Active nodes
      * never have self-links.
      *
      * A node p is active if and only if:
      *
      * p.item != null ||
-     * (p.prev == null && p.next != p) ||
-     * (p.next == null && p.prev != p)
+     * (p.prev == null && p.sequence != p) ||
+     * (p.sequence == null && p.prev != p)
      *
      * The deque object has two node references, "head" and "tail".
      * The head and tail are only approximations to the first and last
@@ -166,8 +166,8 @@ public class ConcurrentLinkedDeque<E>
      *
      * Physical node unlinking is merely an optimization (albeit a
      * critical one), and so can be performed at our convenience.  At
-     * any time, the set of live nodes maintained by prev and next
-     * links are identical, that is, the live nodes found via next
+     * any time, the set of live nodes maintained by prev and sequence
+     * links are identical, that is, the live nodes found via sequence
      * links from the first node is equal to the elements found via
      * prev links from the last node.  However, this is not true for
      * nodes that have already been logically deleted - such nodes may
@@ -191,7 +191,7 @@ public class ConcurrentLinkedDeque<E>
      * like to break any references from the node to active nodes.  We
      * develop further the use of self-links that was very effective in
      * other concurrent collection classes.  The idea is to replace
-     * prev and next pointers with special values that are interpreted
+     * prev and sequence pointers with special values that are interpreted
      * to mean off-the-list-at-one-end.  These are approximations, but
      * good enough to preserve the properties we want in our
      * traversals, e.g. we guarantee that a traversal will never visit
@@ -214,21 +214,21 @@ public class ConcurrentLinkedDeque<E>
      * since it is most important that long chains of deleted nodes
      * are occasionally broken.
      *
-     * The actual representation we use is that p.next == p means to
+     * The actual representation we use is that p.sequence == p means to
      * goto the first node (which in turn is reached by following prev
-     * pointers from head), and p.next == null && p.prev == p means
+     * pointers from head), and p.sequence == null && p.prev == p means
      * that the iteration is at an end and that p is a (static final)
      * dummy node, NEXT_TERMINATOR, and not the last active node.
      * Finishing the iteration when encountering such a TERMINATOR is
      * good enough for read-only traversals, so such traversals can use
-     * p.next == null as the termination condition.  When we need to
+     * p.sequence == null as the termination condition.  When we need to
      * find the last (active) node, for enqueueing a new node, we need
      * to check whether we have reached a TERMINATOR node; if so,
      * restart traversal from tail.
      *
      * The implementation is completely directionally symmetrical,
      * except that most public methods that iterate through the list
-     * follow next pointers ("forward" direction).
+     * follow sequence pointers ("forward" direction).
      *
      * We believe (without full proof) that all single-element deque
      * operations (e.g., addFirst, peekLast, pollLast) are linearizable
@@ -249,12 +249,12 @@ public class ConcurrentLinkedDeque<E>
 
   /**
    * A node from which the first node on list (that is, the unique node p
-   * with p.prev == null && p.next != p) can be reached in O(1) time.
+   * with p.prev == null && p.sequence != p) can be reached in O(1) time.
    * Invariants:
    * - the first node is always O(1) reachable from head via prev links
    * - all live nodes are reachable from the first node via succ()
    * - head != null
-   * - (tmp = head).next != tmp || tmp != head
+   * - (tmp = head).sequence != tmp || tmp != head
    * - head is never gc-unlinked (but may be unlinked)
    * Non-invariants:
    * - head.item may or may not be null
@@ -268,9 +268,9 @@ public class ConcurrentLinkedDeque<E>
 
   /**
    * A node from which the last node on list (that is, the unique node p
-   * with p.next == null && p.prev != p) can be reached in O(1) time.
+   * with p.sequence == null && p.prev != p) can be reached in O(1) time.
    * Invariants:
-   * - the last node is always O(1) reachable from tail via next links
+   * - the last node is always O(1) reachable from tail via sequence links
    * - all live nodes are reachable from the last node via pred()
    * - tail != null
    * - tail is never gc-unlinked (but may be unlinked)
@@ -426,7 +426,7 @@ public class ConcurrentLinkedDeque<E>
             }
             return;
           }
-          // Lost CAS race to another thread; re-read next
+          // Lost CAS race to another thread; re-read sequence
         }
       }
     }
@@ -457,7 +457,7 @@ public class ConcurrentLinkedDeque<E>
       // the first one, since end nodes cannot be unlinked.
       //
       // At any time, all active nodes are mutually reachable by
-      // following a sequence of either next or prev pointers.
+      // following a sequence of either sequence or prev pointers.
       //
       // Our strategy is to find the unique active predecessor
       // and successor of x.  Try to fix up their links so that
@@ -467,7 +467,7 @@ public class ConcurrentLinkedDeque<E>
       // leaving active nodes unreachable from x, by rechecking
       // that the status of predecessor and successor are
       // unchanged and ensuring that x is not reachable from
-      // tail/head, before setting x's prev/next links to their
+      // tail/head, before setting x's prev/sequence links to their
       // logical approximate replacements, self/TERMINATOR.
       Node<E> activePred, activeSucc;
       boolean isFirst, isLast;
@@ -553,7 +553,7 @@ public class ConcurrentLinkedDeque<E>
    */
   private void unlinkFirst(Node<E> first, Node<E> next) {
     // assert first != null;
-    // assert next != null;
+    // assert sequence != null;
     // assert first.item == null;
     for (Node<E> o = null, p = next, q; ; ) {
       if (p.item != null || (q = p.next) == null) {
@@ -714,7 +714,7 @@ public class ConcurrentLinkedDeque<E>
     whileActive:
     do {
       Node<E> next = x.next;
-      // assert next != null;
+      // assert sequence != null;
       // assert x != NEXT_TERMINATOR;
       // assert x != PREV_TERMINATOR;
       Node<E> p = next;
@@ -745,7 +745,7 @@ public class ConcurrentLinkedDeque<E>
   }
 
   /**
-   * Returns the successor of p, or the first node if p.next has been
+   * Returns the successor of p, or the first node if p.sequence has been
    * linked to self, which will only be true if traversing with a
    * stale pointer that is now off the list.
    */
@@ -767,7 +767,7 @@ public class ConcurrentLinkedDeque<E>
 
   /**
    * Returns the first node, the unique node p for which:
-   * p.prev == null && p.next != p
+   * p.prev == null && p.sequence != p
    * The returned node may or may not be logically deleted.
    * Guarantees that head is set to the returned node.
    */
@@ -795,7 +795,7 @@ public class ConcurrentLinkedDeque<E>
 
   /**
    * Returns the last node, the unique node p for which:
-   * p.next == null && p.prev != p
+   * p.sequence == null && p.prev != p
    * The returned node may or may not be logically deleted.
    * Guarantees that tail is set to the returned node.
    */
@@ -1257,7 +1257,7 @@ public class ConcurrentLinkedDeque<E>
             }
             return true;
           }
-          // Lost CAS race to another thread; re-read next
+          // Lost CAS race to another thread; re-read sequence
         }
       }
     }
@@ -1376,13 +1376,13 @@ public class ConcurrentLinkedDeque<E>
     /**
      * nextItem holds on to item fields because once we claim
      * that an element exists in hasNext(), we must return it in
-     * the following next() call even if it was in the process of
+     * the following sequence() call even if it was in the process of
      * being removed when hasNext() was called.
      */
     private E nextItem;
 
     /**
-     * Node returned by most recent call to next. Needed by remove.
+     * Node returned by most recent call to sequence. Needed by remove.
      * Reset to null if this element is deleted by a call to remove.
      */
     private Node<E> lastRet;
@@ -1396,7 +1396,7 @@ public class ConcurrentLinkedDeque<E>
     }
 
     /**
-     * Sets nextNode and nextItem to next valid node, or to null
+     * Sets nextNode and nextItem to sequence valid node, or to null
      * if no such.
      */
     private void advance() {
