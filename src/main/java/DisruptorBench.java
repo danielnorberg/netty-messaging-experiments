@@ -3,7 +3,6 @@ import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.AbstractExecutionThreadService;
 
 import com.lmax.disruptor.AlertException;
-import com.lmax.disruptor.BlockingWaitStrategy;
 import com.lmax.disruptor.EventFactory;
 import com.lmax.disruptor.RingBuffer;
 import com.lmax.disruptor.Sequence;
@@ -284,7 +283,6 @@ public class DisruptorBench {
 
     public volatile long q1, q2, q3, q4, q5, q6, q7 = 7L;
     public volatile long p1, p2, p3, p4, p5, p6, p7 = 7L;
-    private long cursor = 0;
     private long prev = -1;
     private long sequence = -1;
     private long claimed;
@@ -475,40 +473,20 @@ public class DisruptorBench {
       @Override
       protected void handle(final RingBuffer<ReplyEvent> queue, final long lo,
                             final long hi) {
-        // TODO (dano): sum up batches for all handlers
         for (long i = lo; i <= hi; i++) {
           final ReplyEvent event = queue.get(i);
           final EventQueue<ReplyEvent> clientReplyQueue = clientReplyQueues.get(((int) event.clientId));
-          event.queue = clientReplyQueue;
-          clientReplyQueue.sequence++;
-        }
-
-        for (long i = lo; i <= hi; i++) {
-          final ReplyEvent event = queue.get(i);
-          final EventQueue<ReplyEvent> clientReplyQueue = event.queue;
-          if (clientReplyQueue.claimed != clientReplyQueue.sequence) {
-            final int n = (int) (clientReplyQueue.sequence - clientReplyQueue.prev);
-            clientReplyQueue.claimed = clientReplyQueue.buffer.next(n);
-          }
+          clientReplyQueue.sequence = clientReplyQueue.buffer.next();
           handle(clientReplyQueue, event);
-        }
-
-        for (long i = lo; i <= hi; i++) {
-          final ReplyEvent event = queue.get(i);
-          final EventQueue<ReplyEvent> clientReplyQueue = event.queue;
-          clientReplyQueue.publish();
         }
       }
 
-//      @Override
       protected void handle(final EventQueue<ReplyEvent> queue, final ReplyEvent event) {
-        final long seq = queue.cursor++;
+        final long seq = queue.sequence;
         final ReplyEvent clientReplyEvent = queue.buffer.get(seq);
         clientReplyEvent.setClientId(event.getClientId());
         clientReplyEvent.setReply(event.getReply());
       }
     }
   }
-
-
 }
