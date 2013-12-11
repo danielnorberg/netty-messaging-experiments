@@ -315,6 +315,12 @@ public class DisruptorBench {
       buffer.publish(prev + 1, sequence);
       prev = sequence;
     }
+
+    public void maybePublish() {
+      if (sequence - prev >= BATCH_SIZE) {
+        publish();
+      }
+    }
   }
 
   private static class Reactor extends AbstractExecutionThreadService {
@@ -457,6 +463,7 @@ public class DisruptorBench {
             handle(serverQueue, serverSeq, queue.get(seq));
           }
           serverQueue.sequence = serverHi;
+          serverQueue.maybePublish();
         }
       }
 
@@ -492,6 +499,7 @@ public class DisruptorBench {
           final EventQueue<ReplyEvent> clientReplyQueue = clientReplyQueues.get(((int) event.clientId));
           clientReplyQueue.sequence = clientReplyQueue.buffer.next();
           handle(clientReplyQueue, event);
+          clientReplyQueue.maybePublish();
         }
       }
 
