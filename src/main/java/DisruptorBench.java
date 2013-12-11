@@ -22,7 +22,10 @@ import static java.lang.Math.min;
 
 public class DisruptorBench {
 
-  final static ChannelBuffer EMPTY_BUFFER = new EmptyBuffer();
+  static final ChannelBuffer EMPTY_BUFFER = new EmptyBuffer();
+
+  static final int CONCURRENCY = 10000;
+  static final int BATCH_SIZE = 100;
 
   static class ReactorWaitStrategy implements WaitStrategy {
 
@@ -142,33 +145,44 @@ public class DisruptorBench {
     private void process() throws InterruptedException, TimeoutException, AlertException {
 
       final long last = sequence.get();
-      final long next = last + 1;
-      final long seq = barrier.waitFor(next);
+      final long lo = last + 1;
+      final long hi = barrier.waitFor(lo);
 
-      final int batch = (int) (seq - last);
+      final int count = (int) (hi - last);
+      int remaining = count;
+      long seq = lo;
 
+      while (remaining > 0) {
+        final int batch = Math.min(BATCH_SIZE, remaining);
+        final long batchLo = seq;
+        final long batchHi = seq + batch - 1;
+        process(batchLo, batchHi, batch);
+        seq += batch;
+        remaining -= batch;
+      }
+    }
+
+    private void process(final long lo, final long hi, final int count) {
       final long replyLast = replies.getCursor();
-      final long replyNext = replyLast + 1;
-      final long replySeq = replies.next(batch);
+      final long replyLo = replyLast + 1;
+      final long replyHi = replies.next(count);
 
-      for (long i = 0; i < batch; i++) {
-        final RequestEvent requestEvent = requests.get(next + i);
+      for (int i = 0; i < count; i++) {
+        final RequestEvent requestEvent = requests.get(lo + i);
         final Request request = requestEvent.getRequest();
         final long clientId = requestEvent.getClientId();
         final Reply reply = request.makeReply(418);
-        final ReplyEvent replyEvent = replies.get(replyNext + i);
+        final ReplyEvent replyEvent = replies.get(replyLo + i);
         replyEvent.setClientId(clientId);
         replyEvent.setReply(reply);
       }
 
-      sequence.set(seq);
-      replies.publish(replySeq);
+      sequence.set(hi);
+      replies.publish(replyLo, replyHi);
     }
   }
 
   static class Client extends AbstractExecutionThreadService {
-
-    static final int CONCURRENCY = 20000;
 
     private final long id;
     private final RingBuffer<RequestEvent> requests;
@@ -222,17 +236,17 @@ public class DisruptorBench {
 
     private void process() throws InterruptedException, TimeoutException, AlertException {
       final long last = sequence.get();
-      final long next = last + 1;
-      final long replySeq = barrier.waitFor(next);
-      final int batch = (int) (replySeq - last);
-      final long requestNext = requests.getCursor() + 1;
-      final long requestSeq = requests.next(batch);
-      for (long i = 0; i < batch; i++) {
-        final ReplyEvent replyEvent = replies.get(next + i);
-        send(requestNext + i);
+      final long lo = last + 1;
+      final long hi = barrier.waitFor(lo);
+      final int count = (int) (hi - last);
+      final long requestLo = requests.getCursor() + 1;
+      final long requestHi = requests.next(count);
+      for (long i = 0; i < count; i++) {
+        final ReplyEvent replyEvent = replies.get(lo + i);
+        send(requestLo + i);
       }
-      sequence.set(replySeq);
-      requests.publish(requestSeq);
+      sequence.set(hi);
+      requests.publish(requestHi);
     }
 
     private static final Request REQUEST = new Request(0, EMPTY_BUFFER);
