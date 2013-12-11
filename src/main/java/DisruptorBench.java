@@ -137,7 +137,7 @@ public class DisruptorBench {
       }
     }
 
-    static final Reply REPLY = new Reply(new RequestId(0, 0), 200, new EmptyBuffer());
+//    static final Reply REPLY = new Reply(new RequestId(0, 0), 200, new EmptyBuffer());
 
     private void process() throws InterruptedException, TimeoutException, AlertException {
 
@@ -155,10 +155,10 @@ public class DisruptorBench {
         final RequestEvent requestEvent = requests.get(next + i);
         final Request request = requestEvent.getRequest();
         final long clientId = requestEvent.getClientId();
-//        final Reply reply = request.makeReply(418);
+        final Reply reply = request.makeReply(418);
         final ReplyEvent replyEvent = replies.get(replyNext + i);
         replyEvent.setClientId(clientId);
-        replyEvent.setReply(REPLY);
+        replyEvent.setReply(reply);
       }
 
       sequence.set(seq);
@@ -242,7 +242,7 @@ public class DisruptorBench {
       final RequestEvent event = requests.get(seq);
       event.setClientId(id);
       long requestId = requestIdCounter++;
-      event.setRequest(REQUEST);
+      event.setRequest(new Request(requestId, EMPTY_BUFFER));
     }
   }
 
