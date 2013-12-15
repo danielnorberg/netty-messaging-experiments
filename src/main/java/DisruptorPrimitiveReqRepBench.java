@@ -21,7 +21,7 @@ import static com.lmax.disruptor.RingBuffer.createSingleProducer;
 import static java.lang.Math.min;
 import static java.lang.System.out;
 
-public class DisruptorReqRepBench {
+public class DisruptorPrimitiveReqRepBench {
 
   static final ChannelBuffer EMPTY_BUFFER = new EmptyBuffer();
 
@@ -45,26 +45,10 @@ public class DisruptorReqRepBench {
     public static final EventFactory<ReplyEvent> FACTORY = new Factory();
 
     long clientId;
-    Reply reply;
+    long id;
 
     // Used by the reactor
     EventQueue<ReplyEvent> queue;
-
-    public long getClientId() {
-      return clientId;
-    }
-
-    public void setClientId(final long clientId) {
-      this.clientId = clientId;
-    }
-
-    public Reply getReply() {
-      return reply;
-    }
-
-    public void setReply(final Reply reply) {
-      this.reply = reply;
-    }
 
     static class Factory implements EventFactory<ReplyEvent> {
 
@@ -80,23 +64,7 @@ public class DisruptorReqRepBench {
     public static final EventFactory<RequestEvent> FACTORY = new Factory();
 
     long clientId;
-    Request request;
-
-    public long getClientId() {
-      return clientId;
-    }
-
-    public void setClientId(final long clientId) {
-      this.clientId = clientId;
-    }
-
-    public Request getRequest() {
-      return request;
-    }
-
-    public void setRequest(final Request request) {
-      this.request = request;
-    }
+    long id;
 
     static class Factory implements EventFactory<RequestEvent> {
 
@@ -169,12 +137,10 @@ public class DisruptorReqRepBench {
 
       for (int i = 0; i < count; i++) {
         final RequestEvent requestEvent = requests.get(lo + i);
-        final Request request = requestEvent.getRequest();
-        final long clientId = requestEvent.getClientId();
-        final Reply reply = request.makeReply(418);
+        final long clientId = requestEvent.clientId;
         final ReplyEvent replyEvent = replies.get(replyLo + i);
-        replyEvent.setClientId(clientId);
-        replyEvent.setReply(reply);
+        replyEvent.clientId = clientId;
+        replyEvent.id = requestEvent.id;
       }
 
       sequence.set(hi);
@@ -251,14 +217,11 @@ public class DisruptorReqRepBench {
       requests.publish(requestHi);
     }
 
-    private static final Request REQUEST = new Request(0, EMPTY_BUFFER);
-
     private void send(final long seq) {
       // TODO (dano): make it possible to interrupt sequence()
       final RequestEvent event = requests.get(seq);
-      event.setClientId(id);
-      long requestId = requestIdCounter++;
-      event.setRequest(new Request(requestId, EMPTY_BUFFER));
+      event.clientId = id;
+      event.id = requestIdCounter++;
     }
   }
 
@@ -499,8 +462,8 @@ public class DisruptorReqRepBench {
                             final long seq,
                             final RequestEvent event) {
         final RequestEvent serverEvent = queue.buffer.get(seq);
-        serverEvent.setClientId(event.getClientId());
-        serverEvent.setRequest(event.getRequest());
+        serverEvent.clientId = event.clientId;
+        serverEvent.id = event.id;
       }
     }
 
@@ -526,8 +489,8 @@ public class DisruptorReqRepBench {
       protected void handle(final EventQueue<ReplyEvent> queue, final ReplyEvent event) {
         final long seq = queue.sequence;
         final ReplyEvent clientReplyEvent = queue.buffer.get(seq);
-        clientReplyEvent.setClientId(event.getClientId());
-        clientReplyEvent.setReply(event.getReply());
+        clientReplyEvent.clientId = event.clientId;
+        clientReplyEvent.id = event.id;
       }
     }
   }
