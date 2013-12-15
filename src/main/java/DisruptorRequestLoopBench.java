@@ -13,16 +13,12 @@ import com.lmax.disruptor.WaitStrategy;
 import org.jboss.netty.buffer.ChannelBuffer;
 
 import java.util.List;
-import java.util.concurrent.Semaphore;
-
-import jsr166.concurrent.atomic.AtomicBoolean;
 
 import static com.lmax.disruptor.RingBuffer.createSingleProducer;
 import static java.lang.Math.max;
-import static java.lang.Math.min;
 import static java.lang.System.out;
 
-public class DisruptorPrimitiveLoopBench {
+public class DisruptorRequestLoopBench {
 
   static final ChannelBuffer EMPTY_BUFFER = new EmptyBuffer();
 
@@ -50,7 +46,7 @@ public class DisruptorPrimitiveLoopBench {
     public static final EventFactory<MessageEvent> FACTORY = new Factory();
 
     long actorId;
-    long id;
+    Request request;
 
     static class Factory implements EventFactory<MessageEvent> {
 
@@ -127,7 +123,7 @@ public class DisruptorPrimitiveLoopBench {
     private void send(final long actorId, final long seq) {
       final MessageEvent event = out.get(seq);
       event.actorId = actorId;
-      event.id = seq;
+      event.request = new Request(seq, EMPTY_BUFFER);
     }
   }
 
