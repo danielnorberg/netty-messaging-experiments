@@ -22,8 +22,7 @@ CMD="java -Dcom.sun.management.jmxremote.port=$JMX_PORT \
           -Dcom.sun.management.jmxremote.authenticate=false \
           -XX:+UnlockCommercialFeatures -XX:+FlightRecorder \
           -Xmx$HEAP_SIZE -Xms$HEAP_SIZE -XX:NewSize=$NEW_SIZE \
-          -XX:+UseTLAB \
-          -XX:+UseCondCardMark \
+          -XX:+UseNUMA \
           $JVM_ARGS \
           -cp $jar \
           SimpleBench \
