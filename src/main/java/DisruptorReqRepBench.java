@@ -20,7 +20,7 @@ import jsr166.concurrent.atomic.AtomicBoolean;
 import static com.lmax.disruptor.RingBuffer.createSingleProducer;
 import static java.lang.Math.min;
 
-public class DisruptorBench {
+public class DisruptorReqRepBench {
 
   static final ChannelBuffer EMPTY_BUFFER = new EmptyBuffer();
 
