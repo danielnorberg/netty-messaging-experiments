@@ -10,10 +10,6 @@ import com.lmax.disruptor.SequenceBarrier;
 import com.lmax.disruptor.TimeoutException;
 import com.lmax.disruptor.WaitStrategy;
 
-import java.util.concurrent.Semaphore;
-
-import jsr166.concurrent.atomic.AtomicBoolean;
-
 import static com.lmax.disruptor.RingBuffer.createSingleProducer;
 import static java.lang.Math.min;
 
@@ -210,7 +206,7 @@ public class DisruptorPrimitiveSingleServerClientSplitReactorReqRepBench2 {
     if (args.length > 0) {
       batchSize = Integer.parseInt(args[0]);
     } else {
-      batchSize = 10;
+      batchSize = 100;
     }
 
     final int concurrency;
@@ -284,7 +280,6 @@ public class DisruptorPrimitiveSingleServerClientSplitReactorReqRepBench2 {
 
     static class RequestDispatcher extends AbstractExecutionThreadService {
 
-      private final Semaphore semaphore = new Semaphore(0);
       private final RequestEventHandler handler;
       private final RingBuffer<RequestEvent> out =
           createSingleProducer(RequestEvent.FACTORY, BUFFER_SIZE, WAIT_STRATEGY);
@@ -312,7 +307,7 @@ public class DisruptorPrimitiveSingleServerClientSplitReactorReqRepBench2 {
       private class RequestEventHandler extends AbstractEventHandler<RequestEvent> {
 
         private RequestEventHandler(final int batchSize) {
-          super(RequestEvent.FACTORY, semaphore, batchSize);
+          super(RequestEvent.FACTORY, batchSize);
         }
 
         @Override
@@ -333,7 +328,6 @@ public class DisruptorPrimitiveSingleServerClientSplitReactorReqRepBench2 {
 
     static class ReplyDispatcher extends AbstractExecutionThreadService {
 
-      private final Semaphore semaphore = new Semaphore(0);
       private final ReplyEventHandler handler;
       private final RingBuffer<ReplyEvent> out =
           createSingleProducer(ReplyEvent.FACTORY, BUFFER_SIZE, WAIT_STRATEGY);
@@ -362,7 +356,7 @@ public class DisruptorPrimitiveSingleServerClientSplitReactorReqRepBench2 {
       private class ReplyEventHandler extends AbstractEventHandler<ReplyEvent> {
 
         private ReplyEventHandler(final int batchSize) {
-          super(ReplyEvent.FACTORY, semaphore, batchSize);
+          super(ReplyEvent.FACTORY, batchSize);
         }
 
         @Override
@@ -374,8 +368,8 @@ public class DisruptorPrimitiveSingleServerClientSplitReactorReqRepBench2 {
             final ReplyEvent clientReplyEvent = out.get(seq);
             clientReplyEvent.clientId = event.clientId;
             clientReplyEvent.id = event.id;
-            out.publish(seq);
           }
+          out.publish(hi);
         }
       }
     }
@@ -397,51 +391,31 @@ public class DisruptorPrimitiveSingleServerClientSplitReactorReqRepBench2 {
     }
 
 
-    private static abstract class AbstractEventHandler<E> implements WaitStrategy {
+    private static abstract class AbstractEventHandler<E> {
 
       private final RingBuffer<E> queue;
       private final Sequence sequence = new Sequence();
-      private final AtomicBoolean notified = new AtomicBoolean();
-      private final Semaphore semaphore;
       private final int batchSize;
+      private final SequenceBarrier barrier;
 
       protected AbstractEventHandler(final EventFactory<E> eventFactory,
-                                     final Semaphore semaphore, final int batchSize) {
-        this.semaphore = semaphore;
+                                     final int batchSize) {
         this.batchSize = batchSize;
-        this.queue = createSingleProducer(eventFactory, BUFFER_SIZE, this);
+        this.queue = createSingleProducer(eventFactory, BUFFER_SIZE, WAIT_STRATEGY);
         queue.addGatingSequences(sequence);
+        this.barrier = queue.newBarrier();
       }
 
       public RingBuffer<E> getQueue() {
         return queue;
       }
 
-      @Override
-      public long waitFor(final long sequence, final Sequence cursor,
-                          final Sequence dependentSequence,
-                          final SequenceBarrier barrier)
-          throws AlertException, InterruptedException, TimeoutException {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public void signalAllWhenBlocking() {
-        if (notified.compareAndSet(false, true)) {
-          semaphore.release();
-        }
-      }
-
       void process() throws InterruptedException, TimeoutException, AlertException {
-        if (!notified.get()) {
-          return;
-        }
 
-        notified.set(false);
+        final long hi = barrier.waitFor(sequence.get() + 1);
 
         final long last = sequence.get();
         final long lo = last + 1;
-        final long hi = queue.getCursor();
         final int count = (int) (hi - last);
         if (count == 0) {
           return;

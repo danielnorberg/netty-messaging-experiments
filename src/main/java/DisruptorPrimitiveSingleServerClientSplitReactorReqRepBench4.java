@@ -199,7 +199,7 @@ public class DisruptorPrimitiveSingleServerClientSplitReactorReqRepBench4 {
     if (args.length > 0) {
       concurrency = Integer.parseInt(args[0]);
     } else {
-      concurrency = 10000;
+      concurrency = 1000;
     }
 
     final int batchSize;
@@ -212,26 +212,19 @@ public class DisruptorPrimitiveSingleServerClientSplitReactorReqRepBench4 {
     out.printf("concurrency: %s%n", concurrency);
     out.printf("batch size: %s%n", batchSize);
 
-//    final Reactor reactor = new Reactor();
-
     final RingBuffer<RequestEvent> requests =
         createSingleProducer(RequestEvent.FACTORY, BUFFER_SIZE, new LiteBlockingWaitStrategy());
     final RingBuffer<ReplyEvent> replies =
         createSingleProducer(ReplyEvent.FACTORY, BUFFER_SIZE, new LiteBlockingWaitStrategy());
 
     // Client
-    final long clientId = 17;
-//    final RingBuffer<RequestEvent> clientRequests = reactor.clientRequestQueue();
-//    final RingBuffer<ReplyEvent> clientReplies = reactor.clientReplyQueue();
+    final long clientId = 0;
     final Client client = new Client(clientId, requests, replies, concurrency, batchSize);
 
     // Server
-//    final RingBuffer<RequestEvent> serverRequests = reactor.serverRequestQueue();
-//    final RingBuffer<ReplyEvent> serverReplies = reactor.serverReplyQueue();
     final Server server = new Server(requests, replies, batchSize);
 
     // Start
-//    reactor.startAsync();
     client.startAsync();
     server.startAsync();
 
@@ -243,160 +236,4 @@ public class DisruptorPrimitiveSingleServerClientSplitReactorReqRepBench4 {
     });
   }
 
-  private static class Reactor extends AbstractService {
-
-    public static final WaitStrategy WAIT_STRATEGY = new LiteBlockingWaitStrategy();
-
-    private final RequestDispatcher requestDispatcher;
-    private final ReplyDispatcher replyDispatcher;
-
-    private Reactor() {
-      requestDispatcher = new RequestDispatcher();
-      replyDispatcher = new ReplyDispatcher();
-    }
-
-    @Override
-    protected void doStart() {
-      requestDispatcher.startAsync();
-      replyDispatcher.startAsync();
-    }
-
-    @Override
-    protected void doStop() {
-      requestDispatcher.stopAsync();
-      replyDispatcher.stopAsync();
-    }
-
-    static class RequestDispatcher extends AbstractExecutionThreadService {
-
-      private final Sequence sequence = new Sequence();
-      private final SequenceBarrier barrier;
-
-      private final RingBuffer<RequestEvent> out =
-          createSingleProducer(RequestEvent.FACTORY, BUFFER_SIZE, WAIT_STRATEGY);
-      private final RingBuffer<RequestEvent> in =
-          createSingleProducer(RequestEvent.FACTORY, BUFFER_SIZE, WAIT_STRATEGY);
-
-      RequestDispatcher() {
-        in.addGatingSequences(sequence);
-        this.barrier = in.newBarrier();
-      }
-
-      @SuppressWarnings({"ForLoopReplaceableByForEach", "InfiniteLoopStatement"})
-      @Override
-      protected void run() throws Exception {
-        while (true) {
-          process();
-        }
-      }
-
-      public RingBuffer<RequestEvent> inQueue() {
-        return in;
-      }
-
-      public RingBuffer<RequestEvent> outQueue() {
-        return out;
-      }
-
-      void process() throws InterruptedException, TimeoutException, AlertException {
-
-        final long last = sequence.get();
-        final long lo = last + 1;
-        final long hi = barrier.waitFor(lo);
-        final int count = (int) (hi - last);
-        if (count == 0) {
-          return;
-        }
-        handle(lo, hi, count);
-        sequence.set(hi);
-      }
-
-      private void handle(final long lo, final long hi, final int count) {
-        final long outHi = out.next(count);
-        final long outLog = outHi - count + 1;
-        long outSeq = outLog;
-        for (long seq = lo; seq <= hi; seq++, outSeq++) {
-          final RequestEvent inEvent = in.get(seq);
-          final RequestEvent outEvent = out.get(outSeq);
-          outEvent.clientId = inEvent.clientId;
-          outEvent.id = inEvent.id;
-        }
-        out.publish(outHi);
-      }
-    }
-
-    static class ReplyDispatcher extends AbstractExecutionThreadService {
-
-      private final Sequence sequence = new Sequence();
-      private final SequenceBarrier barrier;
-
-      private final RingBuffer<ReplyEvent> out =
-          createSingleProducer(ReplyEvent.FACTORY, BUFFER_SIZE, WAIT_STRATEGY);
-      private final RingBuffer<ReplyEvent> in =
-          createSingleProducer(ReplyEvent.FACTORY, BUFFER_SIZE, WAIT_STRATEGY);
-
-      ReplyDispatcher() {
-        in.addGatingSequences(sequence);
-        this.barrier = in.newBarrier();
-      }
-
-      @SuppressWarnings({"ForLoopReplaceableByForEach", "InfiniteLoopStatement"})
-      @Override
-      protected void run() throws Exception {
-        while (true) {
-          process();
-        }
-      }
-
-      public RingBuffer<ReplyEvent> outQueue() {
-        return out;
-      }
-
-      public RingBuffer<ReplyEvent> inQueue() {
-        return in;
-      }
-
-      void process() throws InterruptedException, TimeoutException, AlertException {
-
-        final long last = sequence.get();
-        final long lo = last + 1;
-        final long hi = barrier.waitFor(lo);
-        final int count = (int) (hi - last);
-        if (count == 0) {
-          return;
-        }
-        handle(lo, hi, count);
-        sequence.set(hi);
-      }
-
-      private void handle(final long lo, final long hi, final int count) {
-        final long outHi = out.next(count);
-        final long outLo = outHi - count + 1;
-        long outSeq = outLo;
-        for (long seq = lo; seq <= hi; seq++, outSeq++) {
-          final ReplyEvent event = in.get(seq);
-          final ReplyEvent clientReplyEvent = out.get(outSeq);
-          clientReplyEvent.clientId = event.clientId;
-          clientReplyEvent.id = event.id;
-        }
-        out.publish(outHi);
-      }
-    }
-
-    public RingBuffer<RequestEvent> clientRequestQueue() {
-      return requestDispatcher.inQueue();
-    }
-
-    public RingBuffer<RequestEvent> serverRequestQueue() {
-      return requestDispatcher.outQueue();
-    }
-
-    public RingBuffer<ReplyEvent> serverReplyQueue() {
-      return replyDispatcher.inQueue();
-    }
-
-    public RingBuffer<ReplyEvent> clientReplyQueue() {
-      return replyDispatcher.outQueue();
-    }
-  }
 }
