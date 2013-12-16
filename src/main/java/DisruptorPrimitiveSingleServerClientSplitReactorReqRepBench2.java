@@ -1,5 +1,4 @@
 import com.google.common.base.Supplier;
-import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.AbstractExecutionThreadService;
 import com.google.common.util.concurrent.AbstractService;
 
@@ -11,16 +10,14 @@ import com.lmax.disruptor.SequenceBarrier;
 import com.lmax.disruptor.TimeoutException;
 import com.lmax.disruptor.WaitStrategy;
 
-import java.util.List;
 import java.util.concurrent.Semaphore;
 
 import jsr166.concurrent.atomic.AtomicBoolean;
 
 import static com.lmax.disruptor.RingBuffer.createSingleProducer;
 import static java.lang.Math.min;
-import static java.lang.System.out;
 
-public class DisruptorPrimitiveSplitReactorReqRepBench {
+public class DisruptorPrimitiveSingleServerClientSplitReactorReqRepBench2 {
 
   private static class ReplyEvent {
 
@@ -134,11 +131,11 @@ public class DisruptorPrimitiveSplitReactorReqRepBench {
     private final RingBuffer<RequestEvent> requests;
     private final RingBuffer<ReplyEvent> replies;
 
-    public volatile long q0, q1, q2, q3, q4, q5, q6, q7 = 7L;
-    public volatile long p0, p1, p2, p3, p4, p5, p6, p7 = 7L;
+    public volatile long q1, q2, q3, q4, q5, q6, q7 = 7L;
+    public volatile long p1, p2, p3, p4, p5, p6, p7 = 7L;
     private long requestIdCounter = 0;
-    public volatile long r0, r1, r2, r3, r4, r5, r6, r7 = 7L;
-    public volatile long s0, s1, s2, s3, s4, s5, s6, s7 = 7L;
+    public volatile long r1, r2, r3, r4, r5, r6, r7 = 7L;
+    public volatile long s1, s2, s3, s4, s5, s6, s7 = 7L;
 
     private final SequenceBarrier barrier;
     private final Sequence sequence = new Sequence();
@@ -220,23 +217,23 @@ public class DisruptorPrimitiveSplitReactorReqRepBench {
     if (args.length > 1) {
       concurrency = Integer.parseInt(args[1]);
     } else {
-      concurrency = 1000;
+      concurrency = 10000;
     }
 
-    out.printf("batch size: %s%n", batchSize);
-    out.printf("concurrency: %s%n", concurrency);
+    System.out.printf("batch size: %s%n", batchSize);
+    System.out.printf("concurrency: %s%n", concurrency);
 
-    final Reactor reactor = new Reactor();
+    final Reactor reactor = new Reactor(batchSize);
 
     // Client
     final long clientId = 17;
     final Client client = new Client(clientId,
-                                     reactor.clientRequestQueue(batchSize),
-                                     reactor.clientReplyQueue(clientId, batchSize), concurrency);
+                                     reactor.clientRequestQueue(),
+                                     reactor.clientReplyQueue(), concurrency);
 
     // Server
-    final Server server = new Server(reactor.serverRequestQueue(batchSize),
-                                     reactor.serverReplyQueue(batchSize), batchSize);
+    final Server server = new Server(reactor.serverRequestQueue(),
+                                     reactor.serverReplyQueue(), batchSize);
 
     // Start
     reactor.startAsync();
@@ -249,8 +246,6 @@ public class DisruptorPrimitiveSplitReactorReqRepBench {
         return new ProgressMeter.Counters(client.requestIdCounter, 0);
       }
     });
-
-
   }
 
   static class EventQueue<E> {
@@ -267,8 +262,13 @@ public class DisruptorPrimitiveSplitReactorReqRepBench {
   private static class Reactor extends AbstractService {
 
     public static final WaitStrategy WAIT_STRATEGY = new LiteBlockingWaitStrategy();
-    private final RequestDispatcher requestDispatcher = new RequestDispatcher();
-    private final ReplyDispatcher replyDispatcher = new ReplyDispatcher();
+    private final RequestDispatcher requestDispatcher;
+    private final ReplyDispatcher replyDispatcher;
+
+    private Reactor(final int batchSize) {
+      requestDispatcher = new RequestDispatcher(batchSize);
+      replyDispatcher = new ReplyDispatcher(batchSize);
+    }
 
     @Override
     protected void doStart() {
@@ -284,40 +284,29 @@ public class DisruptorPrimitiveSplitReactorReqRepBench {
 
     static class RequestDispatcher extends AbstractExecutionThreadService {
 
-//      public volatile long q1, q2, q3, q4, q5, q6, q7 = 7L;
-//      public volatile long p1, p2, p3, p4, p5, p6, p7 = 7L;
-//      private int serverIndex = 0;
-//      public volatile long r1, r2, r3, r4, r5, r6, r7 = 7L;
-//      public volatile long s1, s2, s3, s4, s5, s6, s7 = 7L;
-
       private final Semaphore semaphore = new Semaphore(0);
-      private final List<RequestEventHandler> handlers = Lists.newArrayList();
+      private final RequestEventHandler handler;
+      private final RingBuffer<RequestEvent> out =
+          createSingleProducer(RequestEvent.FACTORY, BUFFER_SIZE, WAIT_STRATEGY);
 
-      private final List<EventQueue<RequestEvent>> queues = Lists.newArrayList();
+      RequestDispatcher(final int batchSize) {
+        this.handler = new RequestEventHandler(batchSize);
+      }
 
       @SuppressWarnings({"ForLoopReplaceableByForEach", "InfiniteLoopStatement"})
       @Override
       protected void run() throws Exception {
         while (true) {
-//          semaphore.acquire();
-//          semaphore.drainPermits();
-          for (int i = 0; i < handlers.size(); i++) {
-            handlers.get(i).process();
-          }
+          handler.process();
         }
       }
 
-      public RingBuffer<RequestEvent> inQueue(final int batchSize) {
-        final RequestEventHandler handler = new RequestEventHandler(batchSize);
-        handlers.add(handler);
+      public RingBuffer<RequestEvent> inQueue() {
         return handler.getQueue();
       }
 
-      public RingBuffer<RequestEvent> outQueue(final int batchSize) {
-        final RingBuffer<RequestEvent> queue = createSingleProducer(
-            RequestEvent.FACTORY, BUFFER_SIZE, WAIT_STRATEGY);
-        queues.add(new EventQueue<>(queue, batchSize));
-        return queue;
+      public RingBuffer<RequestEvent> outQueue() {
+        return out;
       }
 
       private class RequestEventHandler extends AbstractEventHandler<RequestEvent> {
@@ -329,65 +318,43 @@ public class DisruptorPrimitiveSplitReactorReqRepBench {
         @Override
         protected void handle(final RingBuffer<RequestEvent> in, final long lo, final long hi) {
           final int n = (int) (hi - lo + 1);
-          final EventQueue<RequestEvent> out = queues.get(0);
-//          final EventQueue<RequestEvent> out = nextQueue();
-          final long outHi = out.buffer.next(n);
+          final long outHi = out.next(n);
           long outSeq = outHi - n + 1;
           for (long seq = lo; seq <= hi; seq++, outSeq++) {
             final RequestEvent inEvent = in.get(seq);
-            final RequestEvent outEvent = out.buffer.get(outSeq);
+            final RequestEvent outEvent = out.get(outSeq);
             outEvent.clientId = inEvent.clientId;
             outEvent.id = inEvent.id;
           }
-          out.buffer.publish(outHi);
+          out.publish(outHi);
         }
-
-//        private EventQueue<RequestEvent> nextQueue() {
-//          serverIndex++;
-//          if (serverIndex >= queues.size()) {
-//            serverIndex = 0;
-//          }
-//          return queues.get(serverIndex);
-//        }
-
       }
     }
 
     static class ReplyDispatcher extends AbstractExecutionThreadService {
 
       private final Semaphore semaphore = new Semaphore(0);
-      private final List<AbstractEventHandler> handlers = Lists.newArrayList();
+      private final ReplyEventHandler handler;
+      private final RingBuffer<ReplyEvent> out =
+          createSingleProducer(ReplyEvent.FACTORY, BUFFER_SIZE, WAIT_STRATEGY);
 
-      private final List<EventQueue<ReplyEvent>> queues = Lists.newArrayList();
-      private final List<EventQueue<ReplyEvent>> map = Lists.newArrayList();
+      ReplyDispatcher(final int batchSize) {
+        this.handler = new ReplyEventHandler(batchSize);
+      }
 
       @SuppressWarnings({"ForLoopReplaceableByForEach", "InfiniteLoopStatement"})
       @Override
       protected void run() throws Exception {
         while (true) {
-          semaphore.acquire();
-          semaphore.drainPermits();
-          for (AbstractEventHandler handler : handlers) {
-            handler.process();
-          }
+          handler.process();
         }
       }
 
-      public RingBuffer<ReplyEvent> outQueue(final long clientId, final int batchSize) {
-        final RingBuffer<ReplyEvent> buffer = createSingleProducer(
-            ReplyEvent.FACTORY, BUFFER_SIZE, WAIT_STRATEGY);
-        final EventQueue<ReplyEvent> queue = new EventQueue<>(buffer, batchSize);
-        while (map.size() <= clientId) {
-          map.add(null);
-        }
-        queues.add(queue);
-        map.set((int) clientId, queue);
-        return buffer;
+      public RingBuffer<ReplyEvent> outQueue() {
+        return out;
       }
 
-      public RingBuffer<ReplyEvent> inQueue(final int batchSize) {
-        final ReplyEventHandler handler = new ReplyEventHandler(batchSize);
-        handlers.add(handler);
+      public RingBuffer<ReplyEvent> inQueue() {
         return handler.getQueue();
       }
 
@@ -403,31 +370,30 @@ public class DisruptorPrimitiveSplitReactorReqRepBench {
                               final long hi) {
           for (long i = lo; i <= hi; i++) {
             final ReplyEvent event = in.get(i);
-            final EventQueue<ReplyEvent> out = map.get(((int) event.clientId));
-            final long seq = out.buffer.next();
-            final ReplyEvent clientReplyEvent = out.buffer.get(seq);
+            final long seq = out.next();
+            final ReplyEvent clientReplyEvent = out.get(seq);
             clientReplyEvent.clientId = event.clientId;
             clientReplyEvent.id = event.id;
-            out.buffer.publish(seq);
+            out.publish(seq);
           }
         }
       }
     }
 
-    public RingBuffer<RequestEvent> clientRequestQueue(final int batchSize) {
-      return requestDispatcher.inQueue(batchSize);
+    public RingBuffer<RequestEvent> clientRequestQueue() {
+      return requestDispatcher.inQueue();
     }
 
-    public RingBuffer<RequestEvent> serverRequestQueue(final int batchSize) {
-      return requestDispatcher.outQueue(batchSize);
+    public RingBuffer<RequestEvent> serverRequestQueue() {
+      return requestDispatcher.outQueue();
     }
 
-    public RingBuffer<ReplyEvent> serverReplyQueue(final int batchSize) {
-      return replyDispatcher.inQueue(batchSize);
+    public RingBuffer<ReplyEvent> serverReplyQueue() {
+      return replyDispatcher.inQueue();
     }
 
-    public RingBuffer<ReplyEvent> clientReplyQueue(final long clientId, final int batchSize) {
-      return replyDispatcher.outQueue(clientId, batchSize);
+    public RingBuffer<ReplyEvent> clientReplyQueue() {
+      return replyDispatcher.outQueue();
     }
 
 

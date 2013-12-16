@@ -13,21 +13,18 @@ import com.lmax.disruptor.WaitStrategy;
 import org.jboss.netty.buffer.ChannelBuffer;
 
 import java.util.List;
-import java.util.concurrent.Semaphore;
-
-import jsr166.concurrent.atomic.AtomicBoolean;
 
 import static com.lmax.disruptor.RingBuffer.createSingleProducer;
 import static java.lang.Math.max;
-import static java.lang.Math.min;
 import static java.lang.System.out;
 
 public class DisruptorPrimitiveLoopBench {
 
   static final ChannelBuffer EMPTY_BUFFER = new EmptyBuffer();
 
-  static final int CONCURRENCY = 100;
-  static final int BATCH_SIZE = 100;
+  static final int CONCURRENCY = 1000;
+  static final int BATCH_SIZE = 10;
+
   public static final LiteBlockingWaitStrategy WAIT_STRATEGY = new LiteBlockingWaitStrategy();
 
   static class ReactorWaitStrategy implements WaitStrategy {
@@ -69,26 +66,31 @@ public class DisruptorPrimitiveLoopBench {
 
     public volatile long q1, q2, q3, q4, q5, q6, q7 = 7L;
     public volatile long p1, p2, p3, p4, p5, p6, p7 = 7L;
-    private long counter = 0;
+    private long counter;
     public volatile long r1, r2, r3, r4, r5, r6, r7 = 7L;
     public volatile long s1, s2, s3, s4, s5, s6, s7 = 7L;
 
     private final SequenceBarrier barrier;
     private final Sequence sequence = new Sequence();
+    private final int concurrency;
 
     Actor(final long id, final RingBuffer<MessageEvent> in,
-          final RingBuffer<MessageEvent> out) {
+          final RingBuffer<MessageEvent> out, final int concurrency) {
       this.id = id;
       this.in = in;
       this.out = out;
+      this.concurrency = concurrency;
       barrier = in.newBarrier();
       in.addGatingSequences(sequence);
     }
 
     @Override
     protected void startUp() throws Exception {
-      final long hi = out.next(CONCURRENCY);
-      final long lo = hi - (CONCURRENCY - 1);
+      if (concurrency == 0) {
+        return;
+      }
+      final long hi = out.next(concurrency);
+      final long lo = hi - (concurrency - 1);
       for (long seq = lo; seq <= hi; seq++) {
         send(id, seq);
       }
@@ -113,14 +115,22 @@ public class DisruptorPrimitiveLoopBench {
       final long lo = last + 1;
       final long hi = barrier.waitFor(lo);
       final int count = (int) (hi - last);
-      final long requestLo = in.getCursor() + 1;
-      final long requestHi = in.next(count);
-      for (long i = 0; i < count; i++) {
-        final MessageEvent messageEvent = out.get(lo + i);
-        send(messageEvent.actorId, requestLo + i);
+      final long requestHi = out.next(count);
+      final long requestLo = requestHi - count + 1;
+      int n = 0;
+      for (long i = 0; i < count; i++, n++) {
+        final long seq = lo + i;
+        final long requestSeq = requestLo + i;
+        final MessageEvent messageEvent = in.get(seq);
+        send(messageEvent.actorId, requestSeq);
+        if (n == BATCH_SIZE) {
+          n = 0;
+          out.publish(requestSeq);
+          sequence.set(seq);
+        }
       }
+      out.publish(requestHi);
       sequence.set(hi);
-      in.publish(requestHi);
       counter += count;
     }
 
@@ -155,7 +165,7 @@ public class DisruptorPrimitiveLoopBench {
     for (int i = 0; i < instances; i++) {
       final RingBuffer<MessageEvent> in = buffers.get((i + 1) % buffers.size());
       final RingBuffer<MessageEvent> out = buffers.get(i);
-      actors.add(new Actor(i, in, out));
+      actors.add(new Actor(i, in, out, CONCURRENCY));
     }
 
     // Start
@@ -163,14 +173,10 @@ public class DisruptorPrimitiveLoopBench {
       actor.startAsync();
     }
 
-    final ProgressMeter meter = new ProgressMeter(new Supplier<ProgressMeter.Counters>() {
+    final ProgressMeter meter = new ProgressMeter("loops", new Supplier<ProgressMeter.Counters>() {
       @Override
       public ProgressMeter.Counters get() {
-        long sum = 0;
-        for (Actor actor : actors) {
-          sum += actor.counter;
-        }
-        return new ProgressMeter.Counters(sum, 0);
+        return new ProgressMeter.Counters(actors.get(0).counter, 0);
       }
     });
   }

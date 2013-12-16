@@ -20,7 +20,7 @@ import static com.lmax.disruptor.RingBuffer.createSingleProducer;
 import static java.lang.Math.min;
 import static java.lang.System.out;
 
-public class DisruptorPrimitiveSplitReactorReqRepBench {
+public class DisruptorPrimitiveSingleServerClientSplitReactorReqRepBench {
 
   private static class ReplyEvent {
 
@@ -134,11 +134,11 @@ public class DisruptorPrimitiveSplitReactorReqRepBench {
     private final RingBuffer<RequestEvent> requests;
     private final RingBuffer<ReplyEvent> replies;
 
-    public volatile long q0, q1, q2, q3, q4, q5, q6, q7 = 7L;
-    public volatile long p0, p1, p2, p3, p4, p5, p6, p7 = 7L;
+    public volatile long q1, q2, q3, q4, q5, q6, q7 = 7L;
+    public volatile long p1, p2, p3, p4, p5, p6, p7 = 7L;
     private long requestIdCounter = 0;
-    public volatile long r0, r1, r2, r3, r4, r5, r6, r7 = 7L;
-    public volatile long s0, s1, s2, s3, s4, s5, s6, s7 = 7L;
+    public volatile long r1, r2, r3, r4, r5, r6, r7 = 7L;
+    public volatile long s1, s2, s3, s4, s5, s6, s7 = 7L;
 
     private final SequenceBarrier barrier;
     private final Sequence sequence = new Sequence();
@@ -220,7 +220,7 @@ public class DisruptorPrimitiveSplitReactorReqRepBench {
     if (args.length > 1) {
       concurrency = Integer.parseInt(args[1]);
     } else {
-      concurrency = 1000;
+      concurrency = 10000;
     }
 
     out.printf("batch size: %s%n", batchSize);
